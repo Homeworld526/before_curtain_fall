@@ -1,0 +1,20 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 81e1f4af04dc38a409ccde5c90d65cab, type: 3}
+  m_Name: CYS
+  m_EditorClassIdentifier: 
+  characterName: "\u9648\u7389\u6811"
+  stories:
+  - requiredWeek: 1
+    dialogIndex: 10
+    requiredAffection: 0
+    preDialogContent: "\u9648\u59D0\u5C45\u7136\u90A3\u6837\u5BF9\u4F60\uFF0C\u771F\u4E0D\u6562\u76F8\u4FE1\u90A3\u662F\u771F\u7684\u2026\u2026\u6682\u65F6\u4E0D\u60F3\u89C1\u5979\u4E86\u3002"

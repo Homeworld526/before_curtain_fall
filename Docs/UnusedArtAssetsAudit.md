@@ -1,0 +1,293 @@
+# 未发现运行时引用的美术资源清单
+
+审计日期：2026-08-17
+
+判定条件：未在 Unity YAML（场景、预制体、ScriptableObject、材质、动画及图集中）以 GUID 被引用；未出现在发布场景正在使用的 12 份对话 CSV 或画廊 CSV；且不匹配现有 C# 与打工配置中的动态 Resources 路径规则。
+
+范围：项目自有图片（PNG/JPG/GIF/PSD 等），排除 DOTween。未实际运行 Unity；反射、外部脚本或运行时拼接出未覆盖的新路径仍需人工复核。
+
+结果：274 个候选，876.27 MiB。`Resources` 内 120 个（492.43 MiB），其他源/历史目录 154 个（383.84 MiB）。
+
+## 1. `Assets/Resources`：优先处理
+
+这些文件会被打入包体，但当前未发现引用。
+
+- `Assets\Resources\BE1-底图.PNG` — 1.33 MiB
+- `Assets\Resources\CG\choir.PNG` — 3.87 MiB
+- `Assets\Resources\CG\edit.PNG` — 2.83 MiB
+- `Assets\Resources\CG\gig.PNG` — 4.38 MiB
+- `Assets\Resources\CG\Pager.PNG` — 3.05 MiB
+- `Assets\Resources\CG\tailor.PNG` — 2.79 MiB
+- `Assets\Resources\CG\tutor.PNG` — 2.69 MiB
+- `Assets\Resources\CG-借过一下.jpg` — 15.10 MiB
+- `Assets\Resources\CG-开场.JPG` — 9.55 MiB
+- `Assets\Resources\CG-灵休室.jpg` — 2.30 MiB
+- `Assets\Resources\CG-路边的轿车.jpg` — 7.29 MiB
+- `Assets\Resources\CG-跳舞.jpg` — 8.43 MiB
+- `Assets\Resources\CG-夏姜聊天-1.jpg` — 3.66 MiB
+- `Assets\Resources\CG-夏姜聊天-2.jpg` — 3.83 MiB
+- `Assets\Resources\CG-夏姜跳舞-1.jpg` — 3.61 MiB
+- `Assets\Resources\CG-夏姜跳舞-1-小平紧张.jpg` — 3.61 MiB
+- `Assets\Resources\CG-小平房间.png` — 3.93 MiB
+- `Assets\Resources\CG-小平抚海心手.jpg` — 3.66 MiB
+- `Assets\Resources\CG-要搭把手吗？-赵工.jpg` — 3.29 MiB
+- `Assets\Resources\CharIcon\？.png` — 5.05 MiB
+- `Assets\Resources\CharIcon\陈玉树效果图.jpg` — 3.06 MiB
+- `Assets\Resources\CharIcon\姜韶平.jpg` — 2.90 MiB
+- `Assets\Resources\CharIcon\张海心效果图.jpg` — 3.40 MiB
+- `Assets\Resources\Head\姜韶平-宠溺笑.png` — 2.05 MiB
+- `Assets\Resources\Head\姜韶平-脸红-闭眼.png` — 2.06 MiB
+- `Assets\Resources\Head\姜韶平-欣慰 1.png` — 2.05 MiB
+- `Assets\Resources\Head\姜韶平-张嘴.png` — 2.05 MiB
+- `Assets\Resources\Head\夏伦-带疤-闭眼笑.png` — 1.99 MiB
+- `Assets\Resources\Head\夏伦-带疤-憋笑.png` — 2.05 MiB
+- `Assets\Resources\Head\夏伦-带疤-大笑.png` — 2.02 MiB
+- `Assets\Resources\Head\夏伦-带疤-眯眼笑.png` — 2.01 MiB
+- `Assets\Resources\Head\夏伦-带疤-小吃惊.png` — 2.12 MiB
+- `Assets\Resources\Head\夏伦-学生-黑脸.png` — 1.90 MiB
+- `Assets\Resources\Head\夏伦-学生-说话.png` — 1.94 MiB
+- `Assets\Resources\Head\张海心-不耐烦.png` — 2.69 MiB
+- `Assets\Resources\Head\张海心-不耐烦-皱眉.png` — 2.59 MiB
+- `Assets\Resources\Sylvia-不屑.png` — 6.40 MiB
+- `Assets\Resources\Sylvia-讥讽.png` — 6.41 MiB
+- `Assets\Resources\Sylvia-生气.png` — 6.41 MiB
+- `Assets\Resources\Sylvia-吓哭.png` — 6.06 MiB
+- `Assets\Resources\UI-地图.png` — 0.05 MiB
+- `Assets\Resources\UI-对话案件.png` — 0.07 MiB
+- `Assets\Resources\UI-设置.png` — 0.04 MiB
+- `Assets\Resources\UI-时间&金钱.png` — 0.10 MiB
+- `Assets\Resources\UI-物品.png` — 0.02 MiB
+- `Assets\Resources\UI-选项后圆点.png` — 0.04 MiB
+- `Assets\Resources\Video\效果图.png` — 3.12 MiB
+- `Assets\Resources\WorkIcon\bar.PNG` — 0.06 MiB
+- `Assets\Resources\WorkIcon\chengyushu.PNG` — 0.12 MiB
+- `Assets\Resources\WorkIcon\choir.PNG` — 0.06 MiB
+- `Assets\Resources\WorkIcon\edit.PNG` — 0.06 MiB
+- `Assets\Resources\WorkIcon\gig.PNG` — 0.10 MiB
+- `Assets\Resources\WorkIcon\Pager.PNG` — 0.05 MiB
+- `Assets\Resources\WorkIcon\tailor.PNG` — 0.04 MiB
+- `Assets\Resources\WorkIcon\tutor.PNG` — 0.04 MiB
+- `Assets\Resources\WorkIcon\xialun.PNG` — 0.11 MiB
+- `Assets\Resources\WorkIcon\zhanghaixing.PNG` — 0.10 MiB
+- `Assets\Resources\WorkIcon\打工名片示意图-冰室.JPG` — 0.18 MiB
+- `Assets\Resources\阿宝-嘟嘟嘴-1.png` — 3.10 MiB
+- `Assets\Resources\阿宝-默认.png` — 3.07 MiB
+- `Assets\Resources\阿宝-痛苦.png` — 3.10 MiB
+- `Assets\Resources\阿福-无语.png` — 3.76 MiB
+- `Assets\Resources\豹眼-瞪眼.png` — 6.69 MiB
+- `Assets\Resources\豹眼-冷漠.png` — 6.69 MiB
+- `Assets\Resources\豹眼-咧嘴笑-流汗.png` — 6.70 MiB
+- `Assets\Resources\豹眼-默认.png` — 6.69 MiB
+- `Assets\Resources\场景-酒馆.JPG` — 5.17 MiB
+- `Assets\Resources\场景-女主卧室.JPG` — 5.48 MiB
+- `Assets\Resources\场景-夏伦房间.jpg` — 7.92 MiB
+- `Assets\Resources\场景-夏伦家.jpg` — 0.33 MiB
+- `Assets\Resources\场景-夜总会走廊.jpg` — 15.61 MiB
+- `Assets\Resources\场景-音乐吧.jpg` — 5.62 MiB
+- `Assets\Resources\场景-张海心房间.jpg` — 4.77 MiB
+- `Assets\Resources\陈玉澍-沉思.png` — 6.78 MiB
+- `Assets\Resources\陈玉澍-瞪眼.png` — 6.78 MiB
+- `Assets\Resources\陈玉澍-默认.png` — 6.78 MiB
+- `Assets\Resources\对话背景-天环大厦-大堂.jpg` — 0.27 MiB
+- `Assets\Resources\对话背景-小平房间.png` — 3.93 MiB
+- `Assets\Resources\对话场景-化妆间.jpg` — 2.41 MiB
+- `Assets\Resources\对话场景-剧院走廊.jpg` — 2.80 MiB
+- `Assets\Resources\对话场景-舞台.jpg` — 2.01 MiB
+- `Assets\Resources\房间里的吉他乐.jpg` — 5.66 MiB
+- `Assets\Resources\鼓手-坏笑.png` — 4.71 MiB
+- `Assets\Resources\鼓手-默认.png` — 4.71 MiB
+- `Assets\Resources\鼓手-吐舌.png` — 4.71 MiB
+- `Assets\Resources\键盘手-吼叫.png` — 3.69 MiB
+- `Assets\Resources\键盘手-慌乱.png` — 3.65 MiB
+- `Assets\Resources\键盘手-惊讶.png` — 3.64 MiB
+- `Assets\Resources\键盘手-默认.png` — 3.65 MiB
+- `Assets\Resources\键盘手-恼怒.png` — 3.67 MiB
+- `Assets\Resources\姜背影.png` — 11.47 MiB
+- `Assets\Resources\姜韶平-窗帘服-眯眼笑.png` — 7.67 MiB
+- `Assets\Resources\姜韶平-学生-黑脸.png` — 6.39 MiB
+- `Assets\Resources\姜韶平-学生-紧张(1).png` — 6.43 MiB
+- `Assets\Resources\姜韶平-学生-紧张.png` — 6.44 MiB
+- `Assets\Resources\姜韶平-学生-无语-白眼.png` — 6.45 MiB
+- `Assets\Resources\姜韶平-学生-欣慰.png` — 6.44 MiB
+- `Assets\Resources\姜韶平-学生-咬牙.png` — 6.43 MiB
+- `Assets\Resources\角色图标-陈玉澍.PNG` — 0.12 MiB
+- `Assets\Resources\角色图标-夏伦.PNG` — 0.11 MiB
+- `Assets\Resources\角色图标-张海心.PNG` — 0.10 MiB
+- `Assets\Resources\老板-默认.png` — 8.17 MiB
+- `Assets\Resources\文案黑底.png` — 0.81 MiB
+- `Assets\Resources\夏伦-闭眼.png` — 8.17 MiB
+- `Assets\Resources\夏伦-不带疤-默认(1).png` — 8.74 MiB
+- `Assets\Resources\夏伦-马服-坏笑.png` — 5.78 MiB
+- `Assets\Resources\夏伦-马服-讥讽.png` — 5.82 MiB
+- `Assets\Resources\夏伦-马服-眯眼笑-不脸红.png` — 5.80 MiB
+- `Assets\Resources\夏伦-马服-移开目光.png` — 5.82 MiB
+- `Assets\Resources\夏伦-马服-装可怜.png` — 5.78 MiB
+- `Assets\Resources\夏伦母亲-抱狗-平淡.jpg` — 1.07 MiB
+- `Assets\Resources\夏伦母亲-抱狗-平淡-侧目.png` — 6.70 MiB
+- `Assets\Resources\夏伦母亲-惊讶.png` — 8.24 MiB
+- `Assets\Resources\夏伦母亲-平淡.jpg` — 1.26 MiB
+- `Assets\Resources\夏伦母亲-平淡-侧目.png` — 8.27 MiB
+- `Assets\Resources\夏伦母亲-愠怒.png` — 8.24 MiB
+- `Assets\Resources\张海心-无外套-呲牙(1).png` — 7.58 MiB
+- `Assets\Resources\张海心-无外套-苦恼(1).png` — 7.58 MiB
+- `Assets\Resources\张海心-无外套-懵懂.png` — 7.58 MiB
+- `Assets\Resources\张海心-无外套-生气.png` — 7.60 MiB
+
+## 2. 源文件与历史资料目录
+
+这些文件不在 `Resources`，且没有发现 GUID 直接引用；它们更可能是过程稿、历史版本或参考资料。删除前请美术确认是否保留为源文件。
+
+- `Assets\ArtAsset\3-1\姜韶平-背影.png` — 3.25 MiB
+- `Assets\ArtAsset\3-1\姜韶平-默认(1).png` — 7.96 MiB
+- `Assets\ArtAsset\3-1\夏伦-背影-演出服.png` — 4.44 MiB
+- `Assets\ArtAsset\3-26\UI-暂停.png` — 0.02 MiB
+- `Assets\ArtAsset\3-26\当前所在对话.png` — 0.01 MiB
+- `Assets\ArtAsset\3-7\对话背景-天环大厦-大堂.jpg` — 9.26 MiB
+- `Assets\ArtAsset\4-10\Back.png` — 0.00 MiB
+- `Assets\ArtAsset\4-10\Setting-拷贝.png` — 0.00 MiB
+- `Assets\ArtAsset\4-10\存档内容_底（遮罩100透明度）.png` — 0.06 MiB
+- `Assets\ArtAsset\4-10\效果图设置界面_读取档案.jpg` — 2.28 MiB
+- `Assets\ArtAsset\4-10\效果图设置界面_环境设置 1.jpg` — 1.89 MiB
+- `Assets\ArtAsset\4-10\页数_向右键.png` — 0.00 MiB
+- `Assets\ArtAsset\4-21\按键底.png` — 0.04 MiB
+- `Assets\ArtAsset\4-21\拜访贴纸.png` — 0.04 MiB
+- `Assets\ArtAsset\4-21\背景.png` — 4.44 MiB
+- `Assets\ArtAsset\4-21\打工进度-点亮.png` — 0.00 MiB
+- `Assets\ArtAsset\4-21\打工进度-未点亮.png` — 0.00 MiB
+- `Assets\ArtAsset\4-21\打工进度装饰条.png` — 0.01 MiB
+- `Assets\ArtAsset\4-21\打工心得装饰.png` — 0.00 MiB
+- `Assets\ArtAsset\4-21\底方小cg黑模糊底.png` — 0.21 MiB
+- `Assets\ArtAsset\4-21\底方小cg蒙版.png` — 0.00 MiB
+- `Assets\ArtAsset\4-21\底方小cg外框.png` — 0.18 MiB
+- `Assets\ArtAsset\4-21\否.png` — 0.01 MiB
+- `Assets\ArtAsset\4-21\金钱标志.png` — 0.01 MiB
+- `Assets\ArtAsset\4-21\内容蒙版.png` — 0.06 MiB
+- `Assets\ArtAsset\4-21\是.png` — 0.01 MiB
+- `Assets\ArtAsset\5_18\快捷方式图标.png` — 0.09 MiB
+- `Assets\ArtAsset\5_18\设置界面底.png` — 2.70 MiB
+- `Assets\ArtAsset\5_18\效果图-显示UI.jpg` — 3.48 MiB
+- `Assets\ArtAsset\5_18\效果图-隐藏UI.jpg` — 3.28 MiB
+- `Assets\ArtAsset\5_18\应用图标.jpg` — 0.02 MiB
+- `Assets\ArtAsset\5-8\UI-选项后圆点.png` — 0.04 MiB
+- `Assets\ArtAsset\CG-借过一下.jpg` — 15.10 MiB
+- `Assets\ArtAsset\CG-开场.JPG` — 9.55 MiB
+- `Assets\ArtAsset\UI-地图.png` — 0.05 MiB
+- `Assets\ArtAsset\UI-对话案件.png` — 0.07 MiB
+- `Assets\ArtAsset\UI-设置.png` — 0.04 MiB
+- `Assets\ArtAsset\UI-时间&金钱.png` — 0.10 MiB
+- `Assets\ArtAsset\UI-物品.png` — 0.02 MiB
+- `Assets\ArtAsset\UI-选项后圆点.png` — 0.04 MiB
+- `Assets\ArtAsset\场景-化妆间.JPG` — 4.80 MiB
+- `Assets\ArtAsset\场景-酒馆.JPG` — 5.17 MiB
+- `Assets\ArtAsset\场景-女主卧室.JPG` — 5.48 MiB
+- `Assets\ArtAsset\场刊\cg内容底.png` — 0.03 MiB
+- `Assets\ArtAsset\场刊\CG展示界面-未展开.jpg` — 2.06 MiB
+- `Assets\ArtAsset\场刊\选线装饰.png` — 0.00 MiB
+- `Assets\ArtAsset\场刊\选择-回到主界面.png` — 0.01 MiB
+- `Assets\ArtAsset\场刊\页码底.png` — 0.02 MiB
+- `Assets\ArtAsset\场刊\页码-向后.png` — 0.00 MiB
+- `Assets\ArtAsset\场刊\页码-向前.png` — 0.00 MiB
+- `Assets\ArtAsset\场刊\展开键01.png` — 0.00 MiB
+- `Assets\ArtAsset\陈玉澍-默认.png` — 8.99 MiB
+- `Assets\ArtAsset\黑边.PNG` — 0.81 MiB
+- `Assets\ArtAsset\姜背影.png` — 11.47 MiB
+- `Assets\ArtAsset\头像框.png` — 2.20 MiB
+- `Assets\ArtAsset\文案黑底.png` — 0.81 MiB
+- `Assets\Data\Atlas\start_view_atlas.png` — 1.68 MiB
+- `Assets\Tiles\5bab905db4a885dd1be1b7e6e8f042e0.png` — 1.09 MiB
+- `Assets\Tiles\7f3d962581daf1e82d4f1840bd53fae4.jpg` — 0.11 MiB
+- `Assets\美术素材\CG\打工-家（裁缝）.PNG` — 2.79 MiB
+- `Assets\美术素材\CG\打工-家教（居民公告板）.PNG` — 2.69 MiB
+- `Assets\美术素材\CG\打工-圣母堂.PNG` — 3.87 MiB
+- `Assets\美术素材\UIicon\f3895e582daebff13e5937d2cb5bed89.png` — 9.37 MiB
+- `Assets\美术素材\UIicon\newicon\UI-点击跳转.png` — 0.01 MiB
+- `Assets\美术素材\UIicon\newicon\UI-快进.png` — 0.02 MiB
+- `Assets\美术素材\UIicon\newicon\UI-现金提升.png` — 0.01 MiB
+- `Assets\美术素材\UIicon\UI-地图 1.png` — 0.10 MiB
+- `Assets\美术素材\UIicon\UI-地图.png` — 0.05 MiB
+- `Assets\美术素材\UIicon\UI-金钱 1.png` — 0.15 MiB
+- `Assets\美术素材\UIicon\UI-金钱.png` — 0.03 MiB
+- `Assets\美术素材\UIicon\UI-人物.png` — 0.09 MiB
+- `Assets\美术素材\UIicon\UI-设置 1.png` — 0.09 MiB
+- `Assets\美术素材\UIicon\UI-设置.png` — 0.04 MiB
+- `Assets\美术素材\UIicon\UI-时间 1.png` — 0.14 MiB
+- `Assets\美术素材\UIicon\UI-时间.png` — 0.02 MiB
+- `Assets\美术素材\UIicon\UI-物品.png` — 0.02 MiB
+- `Assets\美术素材\UIicon\UI-显示地点.png` — 0.25 MiB
+- `Assets\美术素材\UIicon\UI-选项后圆点.png` — 0.04 MiB
+- `Assets\美术素材\UIicon\叉子.png` — 0.00 MiB
+- `Assets\美术素材\UIicon\打工条件-三行.png` — 0.29 MiB
+- `Assets\美术素材\UIicon\打工条件-一行.png` — 0.18 MiB
+- `Assets\美术素材\UIicon\黑边.PNG` — 0.82 MiB
+- `Assets\美术素材\UIicon\通用文本框\2f539672bdbc1ec673c808f3775df679.jpg` — 0.06 MiB
+- `Assets\美术素材\UIicon\通用文本框\c21ee073b5db1d8d016d2cfb7671d122.jpg` — 0.34 MiB
+- `Assets\美术素材\UIicon\通用文本框\通用框型号01.png` — 1.08 MiB
+- `Assets\美术素材\UIicon\新手指引\教学指引图标效果图.jpg` — 2.57 MiB
+- `Assets\美术素材\UIicon\新手指引\教学指引效果图-解锁角色后.jpg` — 1.54 MiB
+- `Assets\美术素材\UIicon\新手指引\教学指引效果图-解锁角色前02.jpg` — 1.44 MiB
+- `Assets\美术素材\UIicon\新手指引\教学指引效果图-注释.jpg` — 1.62 MiB
+- `Assets\美术素材\背景\场景-女主卧室.JPG` — 5.48 MiB
+- `Assets\美术素材\场景\场景-酒馆.JPG` — 5.17 MiB
+- `Assets\美术素材\场景\场景-女主卧室.JPG` — 5.48 MiB
+- `Assets\美术素材\打工界面\参考.jpg` — 0.16 MiB
+- `Assets\美术素材\打工界面\打工过场\打工进度-未点亮.png` — 0.00 MiB
+- `Assets\美术素材\打工界面\打工过场\底方小cg黑模糊底.png` — 0.21 MiB
+- `Assets\美术素材\打工界面\打工过场\照片纹理（需要用遮罩）.png` — 1.79 MiB
+- `Assets\美术素材\打工界面\结算\日程结算.jpg` — 2.17 MiB
+- `Assets\美术素材\打工界面\结算\日程结算-注释版.jpg` — 2.26 MiB
+- `Assets\美术素材\打工界面\圣母\UI位置示意.png` — 3.94 MiB
+- `Assets\美术素材\打工界面\效果图.jpg` — 3.44 MiB
+- `Assets\美术素材\地图\4e6adb08ac5d8f8da8b4c93f4b8531c4.jpg` — 0.02 MiB
+- `Assets\美术素材\地图\场景-化妆间.jpg` — 3.91 MiB
+- `Assets\美术素材\地图\地点图标位置参考.png` — 4.44 MiB
+- `Assets\美术素材\地图\地图形状蒙版 1.png` — 0.55 MiB
+- `Assets\美术素材\地图\访问地图\传呼机消息.PNG` — 0.03 MiB
+- `Assets\美术素材\地图\访问地图\傳呼臺.PNG` — 0.05 MiB
+- `Assets\美术素材\地图\访问地图\大富豪遊樂中心_.PNG` — 0.06 MiB
+- `Assets\美术素材\地图\访问地图\都市週刊_.PNG` — 0.05 MiB
+- `Assets\美术素材\地图\访问地图\访问地图-大 示意图.jpg` — 1.88 MiB
+- `Assets\美术素材\地图\访问地图\访问地图示意图.JPG` — 4.36 MiB
+- `Assets\美术素材\地图\访问地图\角色图标-姜.png` — 0.05 MiB
+- `Assets\美术素材\地图\访问地图\居民告示板_.PNG` — 0.04 MiB
+- `Assets\美术素材\地图\访问地图\摩天輪_ (1).PNG` — 0.06 MiB
+- `Assets\美术素材\地图\访问地图\七龍冰室_.PNG` — 0.07 MiB
+- `Assets\美术素材\地图\访问地图\聖母堂_ (1).PNG` — 0.06 MiB
+- `Assets\美术素材\地图\访问地图\聖母堂_ 1.PNG` — 0.06 MiB
+- `Assets\美术素材\地图\访问地图\聖母堂_.PNG` — 0.06 MiB
+- `Assets\美术素材\地图\访问地图\天環大廈_.PNG` — 0.08 MiB
+- `Assets\美术素材\地图\访问地图\夏倫的家_.PNG` — 0.08 MiB
+- `Assets\美术素材\地图\访问地图\野狼音樂吧_ 1.PNG` — 0.05 MiB
+- `Assets\美术素材\地图\访问地图\藝術中心劇院_ 1.PNG` — 0.08 MiB
+- `Assets\美术素材\地图\访问地图\藝術中心劇院_.PNG` — 0.08 MiB
+- `Assets\美术素材\地图\教学\地图界面.psd` — 172.03 MiB
+- `Assets\美术素材\地图\教学\地图提示半透明底.png` — 0.01 MiB
+- `Assets\美术素材\地图\教学\对话示意3.25.jpg` — 3.22 MiB
+- `Assets\美术素材\地图\教学\深色底.png` — 0.01 MiB
+- `Assets\美术素材\地图\内容分段装饰.png` — 0.00 MiB
+- `Assets\美术素材\地图\通用框型号02.png` — 1.05 MiB
+- `Assets\美术素材\地图\头像\角色图标-姜.png` — 0.05 MiB
+- `Assets\美术素材\地图\头像\角色图标-夏伦-变 (1).PNG` — 0.11 MiB
+- `Assets\美术素材\地图\微信图片_20260419233929_35_207.jpg` — 0.21 MiB
+- `Assets\美术素材\地图\夏倫的家.PNG` — 0.03 MiB
+- `Assets\美术素材\地图\新建项目.png` — 0.00 MiB
+- `Assets\美术素材\地图\新建项目-2.png` — 0.01 MiB
+- `Assets\美术素材\地图\新建项目-3.png` — 0.11 MiB
+- `Assets\美术素材\地图\新建项目-4.png` — 0.00 MiB
+- `Assets\美术素材\教学\与角色工作插图.png` — 0.26 MiB
+- `Assets\美术素材\矢量图标\10背包.png` — 0.01 MiB
+- `Assets\美术素材\矢量图标\背包 (1).png` — 0.00 MiB
+- `Assets\美术素材\矢量图标\背包.png` — 0.00 MiB
+- `Assets\美术素材\矢量图标\钱袋.png` — 0.00 MiB
+- `Assets\美术素材\矢量图标\时间.png` — 0.00 MiB
+- `Assets\美术素材\主界面\new\退出舞台-常态.png` — 0.06 MiB
+- `Assets\美术素材\主界面\new\退出舞台-发光.png` — 0.07 MiB
+- `Assets\美术素材\主界面\按键_CG-GALLERY.png` — 0.02 MiB
+- `Assets\美术素材\主界面\按键_場刊鑒賞_发光.png` — 0.07 MiB
+- `Assets\美术素材\主界面\按键_揭開序幕.png` — 0.08 MiB
+- `Assets\美术素材\主界面\按键_揭開序幕_发光.png` — 0.08 MiB
+- `Assets\美术素材\主界面\按键_選項設置.png` — 0.08 MiB
+- `Assets\美术素材\主界面\按键_選項設置_发光.png` — 0.08 MiB
+- `Assets\美术素材\主界面\按键_演出再開.png` — 0.08 MiB
+- `Assets\美术素材\主界面\按键_演出再開_发光.png` — 0.07 MiB
+- `Assets\美术素材\主界面\按键-装饰底.png` — 0.03 MiB
+- `Assets\美术素材\主界面\参考\eb87e4be2468438abefa7347587c7cd6.png` — 16.54 MiB

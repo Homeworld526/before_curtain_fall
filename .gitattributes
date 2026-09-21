@@ -1,0 +1,3 @@
+Assets/Systems/Dialog/Font/SourceHanSerifSC-Medium[[:space:]]SDF.asset filter=lfs diff=lfs merge=lfs -text
+Assets/Systems/Dialog/Siyuanrouhei[[:space:]]SDF.asset filter=lfs diff=lfs merge=lfs -text
+Assets/Systems/Dialog/SourceHanSansCN-Medium[[:space:]]SDF.asset filter=lfs diff=lfs merge=lfs -text

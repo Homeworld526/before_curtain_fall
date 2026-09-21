@@ -1,0 +1,49 @@
+====================================================
+                剧情解锁配置说明
+====================================================
+
+一、配置步骤
+------------------
+1. 在 Unity 中打开场景
+2. 创建一个空物体，命名为 "DialogKeywordDetector"
+3. 将 Assets/CS/UI/DialogKeywordDetector.cs 脚本拖到该物体上
+4. 在 Inspector 中配置关键词列表
+
+二、DialogKeywordDetector 配置
+------------------
+Keyword Unlocks 列表配置：
+
+| 字段 | 值 | 说明 |
+|------|-----|------|
+| keyword | 嘴上这么说着，海心还是捧着酒杯，在你的监督下咕咚咕咚地喝完了牛奶。 | 要检测的剧情台词 |
+| unlockKey | 张海心剧情解锁 | 存档键名（必须与 CSV 配置一致） |
+| description | 解锁张海心角色打工和酒吧普通打工 | 描述信息（仅用于调试） |
+
+三、CSV 配置
+------------------
+1. 普通打工配置 (Assets/Resources/Configs/NormalJobs.csv)：
+   - 第16列：unlockDialogKeyword（剧情解锁关键词）
+   - 已配置：酒保 → 张海心剧情解锁
+
+2. 角色打工配置 (Assets/Resources/Configs/CharacterJobs.csv)：
+   - 第19列：unlockDialogKeyword（剧情解锁关键词）
+   - 已配置：帮张海心填词 → 张海心剧情解锁
+
+四、工作流程
+------------------
+1. 游戏开始时，所有配置了 unlockDialogKeyword 的打工都会隐藏
+2. 当剧情播放到指定台词时，DialogKeywordDetector 会检测到
+3. 检测到后，设置 PlayerPrefs 中的对应键值为 1
+4. 然后刷新打工列表，解锁的打工就会显示
+
+五、调试
+------------------
+1. 运行游戏，查看 Console 日志
+2. 应该看到：[LoadCsv] 加载打工: xxx, 解锁关键词: xxx
+3. 剧情播放时应该看到：[DialogKeywordDetector] 检测到关键词: xxx
+4. 如果有问题，右键点击 DialogKeywordDetector 组件，选择 "重置所有关键词状态"
+
+六、编辑器工具
+------------------
+1. Tools → 打工配置编辑器：打开配置说明和快捷操作
+2. 使用该工具可以快速打开 CSV 文件和重置存档

@@ -1,0 +1,16 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2012/06/nuspec.xsd">
+  <metadata>
+    <id>OpenCCSharp</id>
+    <version>0.0.1</version>
+    <authors>Seng Jik</authors>
+    <description>Package Description</description>
+    <repository type="git" commit="b46427ccd859e8e72a247b073c5e42fe2198a130" />
+    <dependencies>
+      <group targetFramework=".NETFramework4.8" />
+      <group targetFramework="net8.0" />
+      <group targetFramework="net9.0" />
+      <group targetFramework=".NETStandard2.1" />
+    </dependencies>
+  </metadata>
+</package>

@@ -1,0 +1,10 @@
+Key,Value
+main_menu_start,Start
+main_menu_continue,Continue
+main_menu_settings,Settings
+main_menu_quit,Quit
+settings_language,Language
+settings_volume,Volume
+dialog_skip,Skip
+dialog_auto,Auto
+dialog_history,History

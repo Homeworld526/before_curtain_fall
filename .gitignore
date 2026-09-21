@@ -1,0 +1,18 @@
+# =========================================
+# Unity 项目标准 .gitignore
+# =========================================
+
+/Library/
+/Temp/
+/Obj/
+/Build/
+/Builds/
+/Logs/
+/User[Ss]ettings/
+/MemoryCaptures/
+/Recordings/
+
+*.apk
+*.aab
+*.unitypackage
+*.app

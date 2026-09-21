@@ -1,0 +1,10 @@
+Key,Value
+main_menu_start,开始游戏
+main_menu_continue,继续游戏
+main_menu_settings,设置
+main_menu_quit,退出
+settings_language,语言
+settings_volume,音量
+dialog_skip,跳过
+dialog_auto,自动
+dialog_history,历史记录
