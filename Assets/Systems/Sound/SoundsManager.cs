@@ -610,6 +610,24 @@ public class SoundsManager : SingleCase<SoundsManager>
     }
 
     /// <summary>
+    /// 立即停止所有音效通道（含 UI 和打字音），并取消正在进行的音效淡出。
+    /// 用于预览工具切换/重置，避免上一段预览的声音残留到下一段。
+    /// </summary>
+    public void StopAllSfxImmediate()
+    {
+        if (_sfxFadeOutCoroutine != null)
+        {
+            StopCoroutine(_sfxFadeOutCoroutine);
+            _sfxFadeOutCoroutine = null;
+        }
+
+        StopSfx();
+        if (_uiSfxSource != null) _uiSfxSource.Stop();
+        if (_typingSfxSource != null) _typingSfxSource.Stop();
+        ApplyVolumeToSfxSources();
+    }
+
+    /// <summary>
     /// 所有音效渐出并停止（含 SFX 池、UI 音效、打字音效）
     /// </summary>
     /// <param name="duration">渐出时长（秒），默认使用 _fadeDuration</param>

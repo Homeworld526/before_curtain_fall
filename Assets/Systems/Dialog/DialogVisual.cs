@@ -20,6 +20,48 @@ public class DialogVisual : SingleCase<DialogVisual>
 
     private static readonly Dictionary<string, Sprite> _spriteCache = new Dictionary<string, Sprite>();
 
+    private sealed class PreviewImageState
+    {
+        private readonly Image _image;
+        private readonly Sprite _sprite;
+        private readonly Color _color;
+        private readonly Vector2 _anchoredPosition;
+        private readonly Vector3 _localPosition;
+        private readonly Vector3 _localScale;
+        private readonly Quaternion _localRotation;
+
+        public Image Image => _image;
+
+        public PreviewImageState(Image image)
+        {
+            _image = image;
+            _sprite = image.sprite;
+            _color = image.color;
+            _anchoredPosition = image.rectTransform.anchoredPosition;
+            _localPosition = image.rectTransform.localPosition;
+            _localScale = image.rectTransform.localScale;
+            _localRotation = image.rectTransform.localRotation;
+        }
+
+        public void Restore()
+        {
+            if (_image == null) return;
+
+            PicSwaper swaper = _image.GetComponent<PicSwaper>();
+            swaper?.PicHideImmediate();
+            swaper?.CleanClones();
+            _image.sprite = _sprite;
+            _image.color = _color;
+            _image.rectTransform.anchoredPosition = _anchoredPosition;
+            _image.rectTransform.localPosition = _localPosition;
+            _image.rectTransform.localScale = _localScale;
+            _image.rectTransform.localRotation = _localRotation;
+        }
+    }
+
+    private readonly List<PreviewImageState> _previewImageStates = new List<PreviewImageState>();
+    private bool _hasPreviewBaseline;
+
     private void OnDisable()
     {
         CG.sprite = LoadSprite("黑屏");
@@ -973,8 +1015,16 @@ private IEnumerator UpdateOpponentPicAsync(DialogNode tmp, bool instant = false)
     {
         if (_endingDialog) return;
         _endingDialog = true;
+
+        // 预览结束后立即回到启动预览前的基线，不能把最后一帧、选项或音频带入下一次预览。
+        if (IsPreviewMode)
+        {
+            StopPreview();
+            return;
+        }
+
         SoundsManager.Instance.ClearMusicClip();
-        if (!IsPreviewMode && _lastShownDialogIndex >= 0)
+        if (_lastShownDialogIndex >= 0)
         {
             ReadDialogHistory?.MarkAsShown(DialogList.Instance.currentIndex, _lastShownDialogIndex);
         }
@@ -988,8 +1038,7 @@ private IEnumerator UpdateOpponentPicAsync(DialogNode tmp, bool instant = false)
         }
         var x = GameObject.FindObjectOfType<DiaPlayer>();
         if (x != null) x.enabled = true;
-        if (!IsPreviewMode)
-            DialogList.Instance.InvokeEndAct(tree.ShowDialog().note == "" ? dialogFile.name : tree.ShowDialog().note);
+        DialogList.Instance.InvokeEndAct(tree.ShowDialog().note == "" ? dialogFile.name : tree.ShowDialog().note);
     }
 
     /// <summary>
@@ -1295,14 +1344,59 @@ private IEnumerator UpdateOpponentPicAsync(DialogNode tmp, bool instant = false)
             EndDialog();
         }
     }
-    public void StartPreviewFromText(string csvText, bool isMiddle, string fileName)
+    /// <summary>
+    /// 停止当前预览并还原预览启动前的画面、输入、选项和音频状态。
+    /// 仅由 DialogPreview 调用，避免把预览中的临时对象和协程遗留到下一段对话。
+    /// </summary>
+    public void StopPreview()
     {
+        if (!IsPreviewMode && !_hasPreviewBaseline) return;
+
         StopAllCoroutines();
         skipRoutine = null;
         LoadRoutine = null;
         TextPrintCor = null;
         _picProcessCor = null;
         _soundProcessCor = null;
+        monitoringMouse = false;
+        skipLoading = false;
+        IsSkip = false;
+        IsAuto = false;
+        IsHistory = false;
+        IsPause = false;
+        IsUIHidden = false;
+        PrintOnHold = false;
+        ForceNoClickSkip = false;
+        clickDelay = 0;
+        currentType = DialogType.End;
+        _lastShownDialogIndex = -1;
+        _tagStack.Clear();
+        unclosedTagCache = "";
+
+        ClearPreviewChoices();
+        DestroyPreviewDoublePortrait();
+        RestorePreviewBaseline();
+
+        if (SoundsManager.Instance != null)
+        {
+            SoundsManager.Instance.ResetMusic();
+            SoundsManager.Instance.ClearMusicClip();
+            SoundsManager.Instance.StopAllSfxImmediate();
+        }
+
+        diaName.text = "";
+        text.text = "";
+        previewFileName = null;
+        _endingDialog = false;
+        Loaading = false;
+        ClearSpriteCache();
+    }
+
+    public void StartPreviewFromText(string csvText, bool isMiddle, string fileName)
+    {
+        StopPreview();
+        CapturePreviewBaseline();
+
         _endingDialog = false;
         Loaading = true;
         monitoringMouse = false;
@@ -1311,6 +1405,67 @@ private IEnumerator UpdateOpponentPicAsync(DialogNode tmp, bool instant = false)
         tree.BuildTreeFromText(csvText);
         PicRSetMiddleEffect.Instance.StartEffect(isMiddle);
         StartDialog(0);
+    }
+
+    private void CapturePreviewBaseline()
+    {
+        if (_hasPreviewBaseline) return;
+
+        AddPreviewImageState(Background);
+        AddPreviewImageState(Head);
+        AddPreviewImageState(CG);
+        if (VisualLocator.Instance != null)
+        {
+            AddPreviewImageState(PicL);
+            AddPreviewImageState(PicR);
+        }
+
+        _hasPreviewBaseline = true;
+    }
+
+    private void AddPreviewImageState(Image image)
+    {
+        if (image == null || _previewImageStates.Exists(state => state.Image == image)) return;
+        _previewImageStates.Add(new PreviewImageState(image));
+    }
+
+    private void RestorePreviewBaseline()
+    {
+        if (!_hasPreviewBaseline) return;
+
+        foreach (PreviewImageState state in _previewImageStates)
+            state.Restore();
+
+        _previewImageStates.Clear();
+        _hasPreviewBaseline = false;
+    }
+
+    private void ClearPreviewChoices()
+    {
+        for (int i = 0; i < choiceList.Count; i++)
+        {
+            Button choice = choiceList[i];
+            if (choice == null) continue;
+            choice.onClick.RemoveAllListeners();
+            choice.gameObject.SetActive(false);
+            Destroy(choice.gameObject);
+        }
+
+        choiceList.Clear();
+    }
+
+    private void DestroyPreviewDoublePortrait()
+    {
+        Image clone = _picRClone != null ? _picRClone : PicRAlt;
+        if (clone != null)
+        {
+            clone.gameObject.SetActive(false);
+            Destroy(clone.gameObject);
+        }
+
+        _picRClone = null;
+        PicRAlt = null;
+        doublePicRCor = null;
     }
 
     /// <summary>

@@ -45,12 +45,16 @@ public class DialogTree
     public void BuildTree(TextAsset Sheet)
     {
         tree.Clear();
+        lastDia = null;
+        currentIndex = -1;
         ReadText(Sheet.text);
     }
 
     public void BuildTreeFromText(string text)
     {
         tree.Clear();
+        lastDia = null;
+        currentIndex = -1;
         ReadText(text);
     }
 
@@ -194,11 +198,14 @@ public class DialogTree
         string[] cell = dialogRows[1].Split(',');
         for (int i = 1; i < dialogRows.Length; i++)
         {
+            // CSV 末尾常见的换行会产生空行；它不属于对话数据，直接结束读取。
+            if (string.IsNullOrWhiteSpace(dialogRows[i])) break;
+
             //Debug.Log(dialogRows[i]);
 
             string[] newCell = dialogRows[i].Split(',');
             //Debug.Log(dialogRows[i]);
-            if (newCell[(int)DialogColumn.ID] == "") break;
+            if (newCell.Length <= (int)DialogColumn.ID || newCell[(int)DialogColumn.ID] == "") break;
             for (int j = 0; j <= (int)DialogColumn.cg; j++)
             {
                 if (newCell[j] != "")
