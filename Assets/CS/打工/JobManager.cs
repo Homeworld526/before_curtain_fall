@@ -12,6 +12,8 @@ public class JobManager : MonoBehaviour
     public static JobManager Instance { get; private set; }
     #endregion
 
+    private StatEventCenter _statEventCenter;
+
     #region 工作数据结构
     public Dictionary<string, JobData> _allJobs = new Dictionary<string, JobData>();
     public Dictionary<string, JobData> _allcharJobs = new Dictionary<string, JobData>();
@@ -204,19 +206,39 @@ public class JobManager : MonoBehaviour
     #region 生命周期
     private void Awake()
     {
-        if (Instance == null) Instance = this;
-        else Destroy(gameObject);
+        if (Instance == null)
+        {
+            Instance = this;
+            // workscene runs the job system without the dialog event center.
+            _statEventCenter = FindObjectOfType<StatEventCenter>();
+            if (_statEventCenter != null)
+                _statEventCenter.onStatChange += OnStatChanged;
+        }
+        else
+        {
+            Destroy(gameObject);
+            return;
+        }
         
         AutoBindUIReferences();
     }
     
     private void OnDestroy()
     {
+        if (_statEventCenter != null)
+            _statEventCenter.onStatChange -= OnStatChanged;
+
         // 清空静态变量，避免指向已销毁的对象
         if (Instance == this)
         {
             Instance = null;
         }
+    }
+
+    private void OnStatChanged(string statName, int value)
+    {
+        if (statName == "现金")
+            AddMoney(value);
     }
     
     private void OnEnable()
