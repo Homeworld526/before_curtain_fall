@@ -3,24 +3,8 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class StatEventCenter : MonoBehaviour
+public class StatEventCenter : SingleCase<StatEventCenter>
 {
-    public static StatEventCenter Instance { get; private set; }
-
-    private void Awake()
-    {
-        if (Instance == null)
-        {
-            Instance = this;
-            onStatChange += AddMoney;
-        }
-    }
-
-    private void AddMoney(string statName, int value)
-    {
-        if (statName == "现金") JobManager.Instance.AddMoney(value);
-    }
-    
     public event Action<string, int> onStatChange;
 
     public void ChangeStat(string statName, int value)
@@ -49,15 +33,6 @@ public class StatEventCenter : MonoBehaviour
     public void OnDialogEnd(string index)
     {
         onDialogEnd?.Invoke(index);
-    }
-
-    private void OnDestroy()
-    {
-        // 清空静态变量，避免指向已销毁的对象
-        if (Instance == this)
-        {
-            Instance = null;
-        }
     }
 
 }

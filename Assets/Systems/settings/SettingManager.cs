@@ -19,10 +19,16 @@ public class SettingManager : SingleCase<SettingManager>
     {
         LoadSettings();
 
-        if (MasterVolumeSlider != null) MasterVolumeSlider.onValueChanged.AddListener(SoundsManager.Instance.UpdateVolumes);
-        SFXVolumeSlider.onValueChanged.AddListener(SoundsManager.Instance.UpdateVolumes);
-        MusicVolumeSlider.onValueChanged.AddListener(SoundsManager.Instance.UpdateVolumes);
+        BindVolumeSlider(MasterVolumeSlider);
+        BindVolumeSlider(SFXVolumeSlider);
+        BindVolumeSlider(MusicVolumeSlider);
         if (AutoOptionDropDown != null) AutoOptionDropDown.onValueChanged.AddListener(OnAutoOptionChanged);
+    }
+
+    private void BindVolumeSlider(Slider slider)
+    {
+        if (slider != null)
+            slider.onValueChanged.AddListener(SoundsManager.Instance.UpdateVolumes);
     }
 
     private void Update()

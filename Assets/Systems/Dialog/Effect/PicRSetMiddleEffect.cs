@@ -5,19 +5,8 @@ using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class PicRSetMiddleEffect : MonoBehaviour
+public class PicRSetMiddleEffect : SingleCase<PicRSetMiddleEffect>
 {
-    public static PicRSetMiddleEffect Instance;
-
-    private void Awake()
-    {
-        if (Instance == null)
-        {
-            Instance = this;
-        }
-    }
-
-
     [SerializeField] private Vector3 posr;
     [SerializeField] private Vector3 posm;
     [SerializeField] private Vector3 picLDefaultPos;
