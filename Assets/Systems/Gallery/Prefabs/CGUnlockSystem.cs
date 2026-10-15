@@ -19,6 +19,8 @@ public class CGUnlockSystem : SingleCase<CGUnlockSystem>
     public List<string> description;
     public bool debug;
 
+    private StatEventCenter subscribedStatEventCenter;
+
     private void OnEnable()
     {
         /*if (PlayerPrefs.GetInt("FirstGame", 0) < 1)
@@ -26,12 +28,18 @@ public class CGUnlockSystem : SingleCase<CGUnlockSystem>
             PlayerPrefs.DeleteAll();
             PlayerPrefs.SetInt("FirstGame", 1);
         }*/
-        StatEventCenter.Instance.onPicRead += UnlockPic;
+        subscribedStatEventCenter = StatEventCenter.Instance;
+        subscribedStatEventCenter.onPicRead += UnlockPic;
     }
 
     private void OnDisable()
     {
-        StatEventCenter.Instance.onPicRead -= UnlockPic;
+        // The publisher can be destroyed before this component during scene teardown.
+        if (subscribedStatEventCenter != null)
+        {
+            subscribedStatEventCenter.onPicRead -= UnlockPic;
+            subscribedStatEventCenter = null;
+        }
     }
 
     private void Start()

@@ -308,7 +308,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _sfxType: 0
   _customClip: {fileID: 8300000, guid: bba28260a723c4e84a5db0ce236a8bea, type: 3}
-  _customHoverClip: {fileID: 8300000, guid: 3ccf02978e0714ca79f0a1b8010d103f, type: 3}
+  _customHoverClip: {fileID: 8300000, guid: cb4e3a71b727cbe488eccbb558b59915, type: 3}
 --- !u!1 &5065140350695052438
 GameObject:
   m_ObjectHideFlags: 0

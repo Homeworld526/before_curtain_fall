@@ -33,7 +33,13 @@ public class SceneOverviewEffect : MonoBehaviour, IEffect
     private void OnDisable()
     {
         StopAllCoroutines();
-        DialogVisual.Instance.ForceNoClickSkip = false;
+        // During scene teardown DialogVisual may already have been destroyed.
+        // The remaining cleanup is local to this effect, so it can still finish safely.
+        DialogVisual dialogVisual = DialogVisual.Instance;
+        if (dialogVisual != null)
+        {
+            dialogVisual.ForceNoClickSkip = false;
+        }
         _rectTransform.anchoredPosition = origin;
         show = false;
 

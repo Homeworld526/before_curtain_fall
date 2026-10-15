@@ -1806,7 +1806,7 @@ MonoBehaviour:
   diaName: {fileID: 841910858}
   text: {fileID: 1251143291}
   choiceGroup: {fileID: 2124481745}
-  choicePrefab: {fileID: 3063205307973740173, guid: 78bf832dcaaf5d7429424b2e31c91db0, type: 3}
+  choicePrefab: {fileID: 3063205307973740173, guid: 1e086c748b1f8cf458c6c5cf9d728f1a, type: 3}
   choiceList: []
   monitoringMouse: 0
   currentType: 0
@@ -1829,7 +1829,7 @@ MonoBehaviour:
   diaName: {fileID: 841910858}
   text: {fileID: 1251143291}
   choiceGroup: {fileID: 2124481745}
-  choicePrefab: {fileID: 3063205307973740173, guid: 78bf832dcaaf5d7429424b2e31c91db0, type: 3}
+  choicePrefab: {fileID: 3063205307973740173, guid: 1e086c748b1f8cf458c6c5cf9d728f1a, type: 3}
   choiceList: []
   monitoringMouse: 0
   currentType: 0
@@ -1852,7 +1852,7 @@ MonoBehaviour:
   diaName: {fileID: 841910858}
   text: {fileID: 1251143291}
   choiceGroup: {fileID: 2124481745}
-  choicePrefab: {fileID: 3063205307973740173, guid: 78bf832dcaaf5d7429424b2e31c91db0, type: 3}
+  choicePrefab: {fileID: 3063205307973740173, guid: 1e086c748b1f8cf458c6c5cf9d728f1a, type: 3}
   choiceList: []
   monitoringMouse: 0
   currentType: 0
@@ -1875,7 +1875,7 @@ MonoBehaviour:
   diaName: {fileID: 841910858}
   text: {fileID: 1251143291}
   choiceGroup: {fileID: 2124481745}
-  choicePrefab: {fileID: 3063205307973740173, guid: 78bf832dcaaf5d7429424b2e31c91db0, type: 3}
+  choicePrefab: {fileID: 3063205307973740173, guid: 1e086c748b1f8cf458c6c5cf9d728f1a, type: 3}
   choiceList: []
   monitoringMouse: 0
   currentType: 0
@@ -1898,7 +1898,7 @@ MonoBehaviour:
   diaName: {fileID: 841910858}
   text: {fileID: 1251143291}
   choiceGroup: {fileID: 2124481745}
-  choicePrefab: {fileID: 3063205307973740173, guid: 78bf832dcaaf5d7429424b2e31c91db0, type: 3}
+  choicePrefab: {fileID: 3063205307973740173, guid: 1e086c748b1f8cf458c6c5cf9d728f1a, type: 3}
   choiceList: []
   monitoringMouse: 0
   currentType: 0
@@ -1921,7 +1921,7 @@ MonoBehaviour:
   diaName: {fileID: 841910858}
   text: {fileID: 1251143291}
   choiceGroup: {fileID: 2124481745}
-  choicePrefab: {fileID: 3063205307973740173, guid: 78bf832dcaaf5d7429424b2e31c91db0, type: 3}
+  choicePrefab: {fileID: 3063205307973740173, guid: 1e086c748b1f8cf458c6c5cf9d728f1a, type: 3}
   choiceList: []
   monitoringMouse: 0
   currentType: 0
@@ -1944,7 +1944,7 @@ MonoBehaviour:
   diaName: {fileID: 841910858}
   text: {fileID: 1251143291}
   choiceGroup: {fileID: 2124481745}
-  choicePrefab: {fileID: 3063205307973740173, guid: 78bf832dcaaf5d7429424b2e31c91db0, type: 3}
+  choicePrefab: {fileID: 3063205307973740173, guid: 1e086c748b1f8cf458c6c5cf9d728f1a, type: 3}
   choiceList: []
   monitoringMouse: 0
   currentType: 0
@@ -1967,7 +1967,7 @@ MonoBehaviour:
   diaName: {fileID: 841910858}
   text: {fileID: 1251143291}
   choiceGroup: {fileID: 2124481745}
-  choicePrefab: {fileID: 3063205307973740173, guid: 78bf832dcaaf5d7429424b2e31c91db0, type: 3}
+  choicePrefab: {fileID: 3063205307973740173, guid: 1e086c748b1f8cf458c6c5cf9d728f1a, type: 3}
   choiceList: []
   monitoringMouse: 0
   currentType: 0
@@ -1990,7 +1990,7 @@ MonoBehaviour:
   diaName: {fileID: 841910858}
   text: {fileID: 1251143291}
   choiceGroup: {fileID: 2124481745}
-  choicePrefab: {fileID: 3063205307973740173, guid: 78bf832dcaaf5d7429424b2e31c91db0, type: 3}
+  choicePrefab: {fileID: 3063205307973740173, guid: 1e086c748b1f8cf458c6c5cf9d728f1a, type: 3}
   choiceList: []
   monitoringMouse: 0
   currentType: 0
@@ -2013,7 +2013,7 @@ MonoBehaviour:
   diaName: {fileID: 841910858}
   text: {fileID: 1251143291}
   choiceGroup: {fileID: 2124481745}
-  choicePrefab: {fileID: 3063205307973740173, guid: 78bf832dcaaf5d7429424b2e31c91db0, type: 3}
+  choicePrefab: {fileID: 3063205307973740173, guid: 1e086c748b1f8cf458c6c5cf9d728f1a, type: 3}
   choiceList: []
   monitoringMouse: 0
   currentType: 0
@@ -2036,7 +2036,7 @@ MonoBehaviour:
   diaName: {fileID: 841910858}
   text: {fileID: 1251143291}
   choiceGroup: {fileID: 2124481745}
-  choicePrefab: {fileID: 3063205307973740173, guid: 78bf832dcaaf5d7429424b2e31c91db0, type: 3}
+  choicePrefab: {fileID: 3063205307973740173, guid: 1e086c748b1f8cf458c6c5cf9d728f1a, type: 3}
   choiceList: []
   monitoringMouse: 0
   currentType: 0
@@ -2059,7 +2059,7 @@ MonoBehaviour:
   diaName: {fileID: 841910858}
   text: {fileID: 1251143291}
   choiceGroup: {fileID: 2124481745}
-  choicePrefab: {fileID: 3063205307973740173, guid: 78bf832dcaaf5d7429424b2e31c91db0, type: 3}
+  choicePrefab: {fileID: 3063205307973740173, guid: 1e086c748b1f8cf458c6c5cf9d728f1a, type: 3}
   choiceList: []
   monitoringMouse: 0
   currentType: 0
@@ -2082,7 +2082,7 @@ MonoBehaviour:
   diaName: {fileID: 841910858}
   text: {fileID: 1251143291}
   choiceGroup: {fileID: 2124481745}
-  choicePrefab: {fileID: 3063205307973740173, guid: 78bf832dcaaf5d7429424b2e31c91db0, type: 3}
+  choicePrefab: {fileID: 3063205307973740173, guid: 1e086c748b1f8cf458c6c5cf9d728f1a, type: 3}
   choiceList: []
   monitoringMouse: 0
   currentType: 0
@@ -2105,7 +2105,7 @@ MonoBehaviour:
   diaName: {fileID: 841910858}
   text: {fileID: 1251143291}
   choiceGroup: {fileID: 2124481745}
-  choicePrefab: {fileID: 3063205307973740173, guid: 78bf832dcaaf5d7429424b2e31c91db0, type: 3}
+  choicePrefab: {fileID: 3063205307973740173, guid: 1e086c748b1f8cf458c6c5cf9d728f1a, type: 3}
   choiceList: []
   monitoringMouse: 0
   currentType: 0
@@ -2128,7 +2128,7 @@ MonoBehaviour:
   diaName: {fileID: 841910858}
   text: {fileID: 1251143291}
   choiceGroup: {fileID: 2124481745}
-  choicePrefab: {fileID: 3063205307973740173, guid: 78bf832dcaaf5d7429424b2e31c91db0, type: 3}
+  choicePrefab: {fileID: 3063205307973740173, guid: 1e086c748b1f8cf458c6c5cf9d728f1a, type: 3}
   choiceList: []
   monitoringMouse: 0
   currentType: 0
@@ -2151,7 +2151,7 @@ MonoBehaviour:
   diaName: {fileID: 841910858}
   text: {fileID: 1251143291}
   choiceGroup: {fileID: 2124481745}
-  choicePrefab: {fileID: 3063205307973740173, guid: 78bf832dcaaf5d7429424b2e31c91db0, type: 3}
+  choicePrefab: {fileID: 3063205307973740173, guid: 1e086c748b1f8cf458c6c5cf9d728f1a, type: 3}
   choiceList: []
   monitoringMouse: 0
   currentType: 0

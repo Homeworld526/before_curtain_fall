@@ -50,8 +50,6 @@ public class PrayLuck : MonoBehaviour
 
     void OnDestroy()
     {
-        Debug.LogWarning($"[PrayLuck] 对象被销毁! 对象名: {gameObject.name}, 调用栈:\n{System.Environment.StackTrace}");
-        
         // 清空静态变量，避免指向已销毁的对象
         if (Instance == this)
         {

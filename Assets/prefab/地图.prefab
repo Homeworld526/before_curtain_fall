@@ -1448,7 +1448,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _sfxType: 0
   _customClip: {fileID: 8300000, guid: bba28260a723c4e84a5db0ce236a8bea, type: 3}
-  _customHoverClip: {fileID: 8300000, guid: 3ccf02978e0714ca79f0a1b8010d103f, type: 3}
+  _customHoverClip: {fileID: 8300000, guid: cb4e3a71b727cbe488eccbb558b59915, type: 3}
 --- !u!1 &7098248818231146262
 GameObject:
   m_ObjectHideFlags: 0
@@ -2984,7 +2984,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _sfxType: 0
   _customClip: {fileID: 8300000, guid: bba28260a723c4e84a5db0ce236a8bea, type: 3}
-  _customHoverClip: {fileID: 8300000, guid: 3ccf02978e0714ca79f0a1b8010d103f, type: 3}
+  _customHoverClip: {fileID: 8300000, guid: cb4e3a71b727cbe488eccbb558b59915, type: 3}
 --- !u!114 &7284565839180640452
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4028,7 +4028,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _sfxType: 0
   _customClip: {fileID: 8300000, guid: bba28260a723c4e84a5db0ce236a8bea, type: 3}
-  _customHoverClip: {fileID: 8300000, guid: 3ccf02978e0714ca79f0a1b8010d103f, type: 3}
+  _customHoverClip: {fileID: 8300000, guid: cb4e3a71b727cbe488eccbb558b59915, type: 3}
 --- !u!114 &7098248819251004347
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4408,7 +4408,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _sfxType: 0
   _customClip: {fileID: 8300000, guid: bba28260a723c4e84a5db0ce236a8bea, type: 3}
-  _customHoverClip: {fileID: 8300000, guid: 3ccf02978e0714ca79f0a1b8010d103f, type: 3}
+  _customHoverClip: {fileID: 8300000, guid: cb4e3a71b727cbe488eccbb558b59915, type: 3}
 --- !u!1 &7098248819430571999
 GameObject:
   m_ObjectHideFlags: 0
