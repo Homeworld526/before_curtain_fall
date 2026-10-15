@@ -75,6 +75,8 @@ public class DialogVisual : SingleCase<DialogVisual>
         if (_spriteCache.TryGetValue(path, out var cached)) return cached;
         var sprite = Resources.Load<Sprite>(path);
         if (sprite != null) _spriteCache[path] = sprite;
+        else if (path.StartsWith("Characters/", StringComparison.Ordinal) || path.StartsWith("Backgrounds/", StringComparison.Ordinal))
+            Debug.LogError($"[DialogVisual] Sprite not found at Resources/{path}");
         return sprite;
     }
 
@@ -86,6 +88,8 @@ public class DialogVisual : SingleCase<DialogVisual>
         yield return request;
         var sprite = request.asset as Sprite;
         if (sprite != null) _spriteCache[path] = sprite;
+        else if (path.StartsWith("Characters/", StringComparison.Ordinal) || path.StartsWith("Backgrounds/", StringComparison.Ordinal))
+            Debug.LogError($"[DialogVisual] Sprite not found at Resources/{path}");
         onLoaded?.Invoke(sprite);
     }
 
@@ -143,7 +147,7 @@ public class DialogVisual : SingleCase<DialogVisual>
     {
         if (tree.ShowDialog().links.Count < 1)
         {
-            return "对话背景-小平房间";
+            return GetScenePic("对话背景-小平房间");
         }
         return GetScenePic(tree.ShowNextDialog().scene);
     }
@@ -435,7 +439,8 @@ public class DialogVisual : SingleCase<DialogVisual>
             return;
         }
 
-        var clip = Resources.Load<AudioClip>("Music/" + tmp.music);
+        string musicPath = "Audio/Music/" + tmp.music;
+        var clip = Resources.Load<AudioClip>(musicPath);
 
         if (clip != null)
         {
@@ -457,7 +462,7 @@ public class DialogVisual : SingleCase<DialogVisual>
         }
         else
         {
-            Debug.LogError("无法加载音乐" + tmp.music);
+            Debug.LogError($"[DialogVisual] Music not found at Resources/{musicPath} (dialog ID {tmp.index})");
         }
 
         StartCoroutine(PlaySfxNextFrame(tmp.sfx));
@@ -474,19 +479,19 @@ public class DialogVisual : SingleCase<DialogVisual>
         }
     }
 
-    private string GetScenePic(string name)
+    public static string GetScenePic(string name)
     {
         if (name.StartsWith("场景"))
         {
-            return name;
+            return "Backgrounds/Scene/" + name;
         }
         if (name.StartsWith("对话背景"))
         {
-            return name;
+            return "Backgrounds/DialogBg/" + name;
         }
         else
         {
-            return "对话背景-" + name;
+            return "Backgrounds/DialogBg/对话背景-" + name;
         }
     }
     
@@ -538,7 +543,7 @@ public class DialogVisual : SingleCase<DialogVisual>
                     yield return null;
                 
                 }
-                yield return StartCoroutine(LoadSpriteAsync(sprite.Split("+")[0], s => { if (s != null) picR.sprite = s; }));
+                yield return StartCoroutine(LoadSpriteAsync(DialogCharacterResources.GetBodyPath(sprite.Split("+")[0]), s => { if (s != null) picR.sprite = s; }));
                 picR.GetComponent<PicSwaper>()?.PicShow();
             }
             else
@@ -551,8 +556,8 @@ public class DialogVisual : SingleCase<DialogVisual>
                 // 在移动动画期间并行预加载两张 sprite，动画结束后同步显示
                 Sprite preloadedAlt = null;
                 Sprite preloadedR = null;
-                yield return StartCoroutine(LoadSpriteAsync(sprite.Split("+")[1], s => preloadedAlt = s));
-                yield return StartCoroutine(LoadSpriteAsync(sprite.Split("+")[0], s => preloadedR = s));
+                yield return StartCoroutine(LoadSpriteAsync(DialogCharacterResources.GetBodyPath(sprite.Split("+")[1]), s => preloadedAlt = s));
+                yield return StartCoroutine(LoadSpriteAsync(DialogCharacterResources.GetBodyPath(sprite.Split("+")[0]), s => preloadedR = s));
 
                 while (t < 1f)
                 {
@@ -678,7 +683,7 @@ private IEnumerator UpdateOpponentPicAsync(DialogNode tmp, bool instant = false)
                     PicRAlt.color = new Color(1f, 1f, 1f, PicRAlt.color.a);
 
                 Sprite altSprite = null;
-                yield return StartCoroutine(LoadSpriteAsync(sprites[1], s => altSprite = s));
+                yield return StartCoroutine(LoadSpriteAsync(DialogCharacterResources.GetBodyPath(sprites[1]), s => altSprite = s));
                 if (PicRAlt.color.a == 0f)
                 {
                     if (altSprite != null) PicRAlt.sprite = altSprite;
@@ -694,7 +699,7 @@ private IEnumerator UpdateOpponentPicAsync(DialogNode tmp, bool instant = false)
                 PicR.color = new Color(1f, 1f, 1f, PicR.color.a);
 
             Sprite picRSprite = null;
-            yield return StartCoroutine(LoadSpriteAsync(sprites[0], s => picRSprite = s));
+            yield return StartCoroutine(LoadSpriteAsync(DialogCharacterResources.GetBodyPath(sprites[0]), s => picRSprite = s));
             if (PicR.color.a == 0f)
             {
                 if (picRSprite != null) PicR.sprite = picRSprite;
@@ -713,7 +718,7 @@ private IEnumerator UpdateOpponentPicAsync(DialogNode tmp, bool instant = false)
             }
             PicR.color = new Color(1f, 1f, 1f, PicR.color.a);
             Sprite sprite = null;
-            yield return StartCoroutine(LoadSpriteAsync(tmp.illustration_opponent, s => sprite = s));
+            yield return StartCoroutine(LoadSpriteAsync(DialogCharacterResources.GetBodyPath(tmp.illustration_opponent), s => sprite = s));
             if (PicR.color.a == 0f)
             {
                 if (sprite != null) PicR.sprite = sprite;
@@ -754,7 +759,7 @@ private IEnumerator UpdateOpponentPicAsync(DialogNode tmp, bool instant = false)
         }
 
         if (tmp.scene.StartsWith("场景") && scenePic != null)
-            StatEventCenter.Instance.PicRead(scenePicPath);
+            StatEventCenter.Instance.PicRead(scenePic.name);
 
         if (spriteChanged)
         {
@@ -837,7 +842,7 @@ private IEnumerator UpdateOpponentPicAsync(DialogNode tmp, bool instant = false)
         yield return StartCoroutine(UpdateOpponentPicAsync(tmp, instant: isFirstLine));
 
         Sprite illustration = null;
-        yield return StartCoroutine(LoadSpriteAsync("Head/" + tmp.illustration, s => illustration = s));
+        yield return StartCoroutine(LoadSpriteAsync(DialogCharacterResources.GetHeadPath(tmp.illustration), s => illustration = s));
         if (illustration != null)
         {
             var headSwaper = Head.GetComponent<PicSwaper>();

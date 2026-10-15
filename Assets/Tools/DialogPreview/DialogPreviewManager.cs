@@ -482,13 +482,13 @@ public class DialogPreviewManager : MonoBehaviour
         string scene = cells[(int)DialogColumn.scene].Trim();
         if (!IsEmptyResourceValue(scene))
         {
-            string scenePath = scene.StartsWith("场景") || scene.StartsWith("对话背景") ? scene : "对话背景-" + scene;
+            string scenePath = DialogVisual.GetScenePic(scene);
             RegisterResource(resourceReferences, lineNumber, "场景", scenePath, ResourceKind.Sprite);
         }
 
         string portrait = cells[(int)DialogColumn.pic].Trim();
         if (!IsEmptyResourceValue(portrait))
-            RegisterResource(resourceReferences, lineNumber, "头像", "Head/" + portrait, ResourceKind.Sprite);
+            RegisterResource(resourceReferences, lineNumber, "头像", DialogCharacterResources.GetHeadPath(portrait), ResourceKind.Sprite);
 
         string opponent = cells[(int)DialogColumn.potrait].Trim();
         if (!IsEmptyResourceValue(opponent))
@@ -505,7 +505,7 @@ public class DialogPreviewManager : MonoBehaviour
                 if (string.IsNullOrEmpty(path))
                     result.Errors.Add($"第 {lineNumber} 行的对手立绘存在空名称。");
                 else
-                    RegisterResource(resourceReferences, lineNumber, "对手立绘", path, ResourceKind.Sprite);
+                    RegisterResource(resourceReferences, lineNumber, "对手立绘", DialogCharacterResources.GetBodyPath(path), ResourceKind.Sprite);
             }
         }
 
@@ -517,7 +517,7 @@ public class DialogPreviewManager : MonoBehaviour
 
         string music = cells[(int)DialogColumn.music].Trim();
         if (!IsEmptyResourceValue(music))
-            RegisterResource(resourceReferences, lineNumber, "音乐", "Music/" + music, ResourceKind.Audio);
+            RegisterResource(resourceReferences, lineNumber, "音乐", "Audio/Music/" + music, ResourceKind.Audio);
 
         string sfx = cells[(int)DialogColumn.sound].Trim();
         if (!IsEmptyResourceValue(sfx))
@@ -612,7 +612,7 @@ public class DialogPreviewManager : MonoBehaviour
     private static string GetCsvValueSuggestion(string label, string resourcePath)
     {
         string automaticPrefix = label == "头像" ? "Head/"
-            : label == "音乐" ? "Music/"
+            : label == "音乐" ? "Audio/Music/"
             : label == "音效" ? "SFX/"
             : string.Empty;
 
@@ -630,7 +630,7 @@ public class DialogPreviewManager : MonoBehaviour
             candidates.Add(normalized.Substring("Resources/".Length));
 
         AddDuplicatePrefixCandidate(candidates, normalized, "Head/");
-        AddDuplicatePrefixCandidate(candidates, normalized, "Music/");
+        AddDuplicatePrefixCandidate(candidates, normalized, "Audio/Music/");
         AddDuplicatePrefixCandidate(candidates, normalized, "SFX/");
 
         string extension = System.IO.Path.GetExtension(normalized);

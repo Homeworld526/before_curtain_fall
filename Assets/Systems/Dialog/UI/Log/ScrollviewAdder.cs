@@ -11,7 +11,7 @@ public static class KeyWords
 {
     public static string protagonist = "姜韶平";
     public static string pb = "旁白";
-    public static string HistoryFacePrefix = "角色图标-";
+    public static string HistoryFacePrefix = "UI/角色图标-";
 }
 
 

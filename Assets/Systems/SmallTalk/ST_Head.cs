@@ -10,7 +10,7 @@ public class ST_Head : SmallTalkElements
 
     protected override void OnMoveNext(DialogNode node)
     {
-        var tmp = Resources.Load<Sprite>("Head/" + node.illustration);
+        var tmp = DialogVisual.LoadSprite(DialogCharacterResources.GetHeadPath(node.illustration));
         if(tmp !=null)
         {
             if(GetComponent<Image>().color.a < 1f){swaper.PicShow();}
