@@ -27,19 +27,20 @@ public class CGTracker : MonoBehaviour
         string newCG = DialogVisual.Instance.GetCG();
         if (currentpic != newCG)
         {
-            if (DialogVisual.LoadSprite(newCG) == null)
+            string cgPath = DialogCGResources.GetPath(newCG);
+            if (DialogVisual.LoadSprite(cgPath) == null)
             {
                 return;
             }
             if (GetComponent<PicSwaper>())
             {
                 currentpic = newCG;
-                GetComponent<PicSwaper>().PicChange(DialogVisual.LoadSprite(newCG));
+                GetComponent<PicSwaper>().PicChange(DialogVisual.LoadSprite(cgPath));
             }
             else
             {
                 currentpic = newCG;
-                GetComponent<Image>().sprite = DialogVisual.LoadSprite(newCG);
+                GetComponent<Image>().sprite = DialogVisual.LoadSprite(cgPath);
             }
         }
     }

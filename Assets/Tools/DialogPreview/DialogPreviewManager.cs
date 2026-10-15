@@ -512,7 +512,7 @@ public class DialogPreviewManager : MonoBehaviour
         string cg = cells[(int)DialogColumn.cg].Trim();
         if (!IsEmptyResourceValue(cg) && cg != "转场")
         {
-            RegisterResource(resourceReferences, lineNumber, "CG/视频", cg, ResourceKind.SpriteOrVideo);
+            RegisterResource(resourceReferences, lineNumber, "CG/视频", DialogCGResources.GetPath(cg), ResourceKind.SpriteOrVideo);
         }
 
         string music = cells[(int)DialogColumn.music].Trim();

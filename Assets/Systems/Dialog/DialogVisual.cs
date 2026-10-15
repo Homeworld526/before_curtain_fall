@@ -64,7 +64,7 @@ public class DialogVisual : SingleCase<DialogVisual>
 
     private void OnDisable()
     {
-        CG.sprite = LoadSprite("黑屏");
+        CG.sprite = LoadSprite(DialogCGResources.GetPath("黑屏"));
         diaName.text = "";
         text.text = "";
     }
@@ -481,6 +481,8 @@ public class DialogVisual : SingleCase<DialogVisual>
 
     public static string GetScenePic(string name)
     {
+        // An empty scene is intentional during the opening black screen.
+        if (string.IsNullOrEmpty(name) || name == "空") return null;
         if (name.StartsWith("场景"))
         {
             return "Backgrounds/Scene/" + name;
@@ -777,6 +779,8 @@ private IEnumerator UpdateOpponentPicAsync(DialogNode tmp, bool instant = false)
         bool hasCG = tmp.cg != "空" && tmp.cg != "转场" && tmp.cg != "";
         if (hasCG)
         {
+            string cgPath = DialogCGResources.GetPath(tmp.cg);
+            var videoClip = Resources.Load<VideoClip>(cgPath);
             if (isFirstLine)
             {
                /* if (CG.color.a == 0f)
@@ -793,9 +797,12 @@ private IEnumerator UpdateOpponentPicAsync(DialogNode tmp, bool instant = false)
                     Head.color = c;
                 }
 
-                Sprite cgSprite = null;
-                yield return StartCoroutine(LoadSpriteAsync(tmp.cg, s => cgSprite = s));
-                if (cgSprite != null) CG.sprite = cgSprite;
+                if (videoClip == null)
+                {
+                    Sprite cgSprite = null;
+                    yield return StartCoroutine(LoadSpriteAsync(cgPath, s => cgSprite = s));
+                    if (cgSprite != null) CG.sprite = cgSprite;
+                }
             }
 
             if (CG.color.a == 0f)
@@ -804,7 +811,7 @@ private IEnumerator UpdateOpponentPicAsync(DialogNode tmp, bool instant = false)
                 ClearSpriteCache();
             }
 
-            if (Resources.Load<VideoClip>(tmp.cg) is VideoClip videoClip)
+            if (videoClip != null)
             {
                 CG.GetComponent<PicSwaper>().PicChange(videoClip);
                 StatEventCenter.Instance.PicRead("VIDEO_" + tmp.cg);
@@ -812,7 +819,7 @@ private IEnumerator UpdateOpponentPicAsync(DialogNode tmp, bool instant = false)
             else
             {
                 Sprite cgSpr = null;
-                yield return StartCoroutine(LoadSpriteAsync(tmp.cg, s => cgSpr = s));
+                yield return StartCoroutine(LoadSpriteAsync(cgPath, s => cgSpr = s));
                 if (cgSpr != null)
                 {
                     CG.GetComponent<PicSwaper>().PicChange(cgSpr);
@@ -822,6 +829,10 @@ private IEnumerator UpdateOpponentPicAsync(DialogNode tmp, bool instant = false)
                         _spriteCache.Clear();
                         Resources.UnloadUnusedAssets();
                     }
+                }
+                else
+                {
+                    Debug.LogError($"[DialogVisual] CG not found at Resources/{cgPath} (dialog ID {tmp.index}, CG {tmp.cg})");
                 }
             }
 

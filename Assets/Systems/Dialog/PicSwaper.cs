@@ -47,7 +47,7 @@ public class PicSwaper : MonoBehaviour, IEffect
         Debug.LogWarning(displayingVideo);
         if (!hasVideo) return;
         if (_image == null) _image = GetComponent<Image>();
-        var sp = DialogVisual.LoadSprite(newVideo.name.Replace("-动态", ""));
+        var sp = DialogVisual.LoadSprite(DialogCGResources.GetPath(newVideo.name.Replace("-动态", "")));
         if (sp != null)
         {
             _image.sprite = sp;
@@ -489,9 +489,10 @@ public class PicSwaper : MonoBehaviour, IEffect
                 yield return null;
             }
         }
-        if(DialogVisual.LoadSprite(newVid.name) != null)
+        var stillSprite = DialogVisual.LoadSprite(DialogCGResources.GetPath(newVid.name.Replace("-动态", "")));
+        if (stillSprite != null)
         {
-            _image.sprite = DialogVisual.LoadSprite(newVid.name);
+            _image.sprite = stillSprite;
         }
         videoCoroutine = null;
     }
