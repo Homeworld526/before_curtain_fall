@@ -71,7 +71,7 @@ public class SettingManager : SingleCase<SettingManager>
         if (SFXVolumeSlider != null)
             SFXVolumeSlider.value = settings.SFXVolume;
         if (PrintSpeedSlider != null)
-            PrintSpeedSlider.value = settings.PrintSpeed;
+            PrintSpeedSlider.value = 0.1f / settings.PrintSpeed;
         if (AutoPlaySpeedSlider != null)
             AutoPlaySpeedSlider.value = settings.AutoPlaySpeed;
         if (AutoOptionDropDown != null)

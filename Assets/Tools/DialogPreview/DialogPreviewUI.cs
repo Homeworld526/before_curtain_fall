@@ -2,6 +2,7 @@ using System;
 using System.Text;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 public class DialogPreviewUI : MonoBehaviour
@@ -22,13 +23,19 @@ public class DialogPreviewUI : MonoBehaviour
     private Button _validationDetailsButton;
     private Button _batchValidationButton;
     private bool _hasValidationDetails;
+    private Canvas _canvas;
+    private GraphicRaycaster _raycaster;
 
     private void Start()
     {
+        _canvas = GetComponent<Canvas>();
+        _raycaster = GetComponent<GraphicRaycaster>();
+        manager.PreviewEnded += OnPreviewEnded;
+        manager.PreviewStarted += OnPreviewStarted;
+        manager.PreviewFailed += OnPreviewFailed;
         selectBtn.onClick.AddListener(OnSelectFile);
         startBtn.onClick.AddListener(OnStart);
         resetBtn.onClick.AddListener(OnReset);
-        middleToggle.onValueChanged.AddListener(OnMiddleToggleChanged);
         startBtn.interactable = false;
         CreateValidationDetailsButton();
         CreateBatchValidationButton();
@@ -37,10 +44,12 @@ public class DialogPreviewUI : MonoBehaviour
 
     private void OnDestroy()
     {
+        manager.PreviewEnded -= OnPreviewEnded;
+        manager.PreviewStarted -= OnPreviewStarted;
+        manager.PreviewFailed -= OnPreviewFailed;
         selectBtn.onClick.RemoveListener(OnSelectFile);
         startBtn.onClick.RemoveListener(OnStart);
         resetBtn.onClick.RemoveListener(OnReset);
-        middleToggle.onValueChanged.RemoveListener(OnMiddleToggleChanged);
 
         if (_validationDetailsButton != null)
             _validationDetailsButton.onClick.RemoveListener(ShowLastValidation);
@@ -55,9 +64,37 @@ public class DialogPreviewUI : MonoBehaviour
             Destroy(_batchValidationButton.gameObject);
     }
 
-    private void OnMiddleToggleChanged(bool value)
+    private void Update()
     {
-        PicRSetMiddleEffect.Instance.StartEffect(value);
+        if (manager.IsPreviewing && Input.GetKeyDown(KeyCode.F1))
+            SetControlsVisible(!_canvas.enabled);
+    }
+
+    private void SetControlsVisible(bool visible)
+    {
+        _canvas.enabled = visible;
+        _raycaster.enabled = visible;
+        manager.SetControlsVisible(visible);
+        EventSystem.current.SetSelectedGameObject(null);
+    }
+
+    private void OnPreviewStarted()
+    {
+        statusText.text = "预览中...";
+        SetControlsVisible(false);
+    }
+
+    private void OnPreviewFailed(string message)
+    {
+        statusText.text = $"无法启动预览：{message}";
+        SetControlsVisible(true);
+    }
+
+    private void OnPreviewEnded(string note)
+    {
+        SetControlsVisible(true);
+        statusText.text = $"预览结束：{note}";
+        Debug.Log($"[DialogPreview] 对话结束，note={note}");
     }
 
     private void OnSelectFile()
@@ -79,6 +116,7 @@ public class DialogPreviewUI : MonoBehaviour
             {
                 _loadedCsvText = csvText;
                 _loadedFilePath = path;
+                middleToggle.isOn = manager.GetDefaultMiddle(path);
                 startBtn.interactable = true;
             }
             else
@@ -103,14 +141,21 @@ public class DialogPreviewUI : MonoBehaviour
         if (_loadedCsvText == null) return;
         try
         {
+            // Reload the edited file for every run.
+            _loadedCsvText = manager.LoadCsvAsUtf8(_loadedFilePath);
+            var validation = manager.ValidateCsv(_loadedCsvText);
+            UpdateValidationDetails(validation, _loadedFilePath);
+            if (!validation.IsValid)
+            {
+                statusText.text = validation.ToDisplayText();
+                return;
+            }
             manager.StartPreview(_loadedCsvText, middleToggle.isOn, _loadedFilePath);
-            statusText.text = "预览中...";
         }
         catch (Exception e)
         {
             manager.StopPreview();
             statusText.text = $"无法启动预览：{e.Message}";
-            startBtn.interactable = false;
         }
     }
 

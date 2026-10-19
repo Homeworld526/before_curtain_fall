@@ -92,7 +92,9 @@ public class DialogNode
     {
         StatChanger.Add(name);
         ChangerVal.Add(val);
-        PlayerPrefs.DeleteKey(name);
+        // Preview uses a temporary stat store and must not clear gameplay preferences.
+        if (!DialogList.Instance.visual.IsPreviewScene)
+            PlayerPrefs.DeleteKey(name);
     }
 
     public bool CheckAllRequireMents()

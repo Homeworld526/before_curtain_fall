@@ -129,6 +129,7 @@ public class DialogList : SingleCase<DialogList>
 
     private void OnEnable()
     {
+        if (visual.IsPreviewScene) return;
         if (dialogs.Count == 0) return;
 
         // 存档加载期间不自动启动对话，由 SaveSystem 负责恢复

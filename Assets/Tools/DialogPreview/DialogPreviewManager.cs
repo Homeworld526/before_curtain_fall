@@ -1,9 +1,11 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.Video;
 
 /// <summary>
@@ -46,6 +48,90 @@ public sealed class DialogPreviewValidationResult
 public class DialogPreviewManager : MonoBehaviour
 {
     private const int RequiredColumnCount = 18;
+    public event Action<string> PreviewEnded;
+    public event Action PreviewStarted;
+    public event Action<string> PreviewFailed;
+    private static DialogPreviewManager _instance;
+    private DialogVisual _activeVisual;
+    private Scene _runtimeScene;
+    private string _scenePath;
+    private bool _sceneUsed;
+    private bool _reloading;
+    private Action _pendingStart;
+    private bool _controlsVisible = true;
+    private HotKeyManager _hotKeys;
+    private DialogVisual _runtimeVisual;
+    private CanvasGroup _playbackControls;
+    private readonly Dictionary<string, bool> _middleSettings = new Dictionary<string, bool>();
+
+    public bool IsPreviewing => _activeVisual != null;
+
+    private void Awake()
+    {
+        // Only the editing controls survive a reset; all playback components are recreated.
+        if (_instance != null && _instance != this)
+        {
+            gameObject.SetActive(false);
+            Destroy(gameObject);
+            return;
+        }
+
+        _instance = this;
+        _runtimeScene = gameObject.scene;
+        _scenePath = _runtimeScene.path;
+        DontDestroyOnLoad(gameObject);
+        SceneManager.sceneLoaded += OnSceneLoaded;
+    }
+
+    private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        if (scene.path != _scenePath && mode == LoadSceneMode.Single)
+            Destroy(gameObject);
+    }
+
+    private void Start()
+    {
+        BindRuntimeInput();
+    }
+
+    private void BindRuntimeInput()
+    {
+        _hotKeys = FindObjectOfType<HotKeyManager>();
+        if (_hotKeys == null)
+            throw new InvalidOperationException("预览场景缺少 HotKeyManager，无法使用游戏对话快捷键。");
+        _runtimeVisual = FindObjectOfType<DialogVisual>();
+        if (_runtimeVisual == null || !_runtimeVisual.IsPreviewScene)
+            throw new InvalidOperationException("预览场景缺少配置了 previewOnly 的 DialogVisual。");
+        _playbackControls = _runtimeVisual.GetComponent<CanvasGroup>();
+        if (_playbackControls == null)
+            throw new InvalidOperationException("预览对话缺少用于隔离编辑操作的 CanvasGroup。");
+
+        DialogList list = DialogList.Instance;
+        if (list.dialogs.Count != list.isMiddle.Count)
+            throw new InvalidOperationException("DialogList 的剧情列表与居中配置数量不一致。");
+        _middleSettings.Clear();
+        for (int i = 0; i < list.dialogs.Count; i++)
+            _middleSettings.Add(list.dialogs[i].name, list.isMiddle[i]);
+        SetControlsVisible(_controlsVisible);
+    }
+
+    public bool GetDefaultMiddle(string filePath)
+    {
+        return _middleSettings.TryGetValue(Path.GetFileNameWithoutExtension(filePath), out bool middle) && middle;
+    }
+
+    public void SetControlsVisible(bool visible)
+    {
+        _controlsVisible = visible;
+        bool acceptInput = IsPreviewing && !visible;
+        if (_hotKeys != null)
+            _hotKeys.enabled = acceptInput;
+        // Runtime objects are absent while the preview scene is being reloaded.
+        if (_runtimeVisual != null)
+            _runtimeVisual.PreviewInputEnabled = acceptInput;
+        if (_playbackControls != null)
+            _playbackControls.interactable = acceptInput;
+    }
 
     private struct JumpReference
     {
@@ -363,7 +449,7 @@ public class DialogPreviewManager : MonoBehaviour
             if (!string.IsNullOrEmpty(cells[(int)DialogColumn.music]))
                 inheritedCells[(int)DialogColumn.music] = cells[(int)DialogColumn.music];
 
-            string type = inheritedCells[(int)DialogColumn.type].Trim();
+            string type = inheritedCells[(int)DialogColumn.type];
             if (type != "#" && type != "&")
             {
                 result.Errors.Add($"第 {lineNumber} 行的标志“{type}”无效；只能使用 #、& 或留空以沿用上一行标志。");
@@ -404,9 +490,99 @@ public class DialogPreviewManager : MonoBehaviour
 
     public void StopPreview()
     {
-        var visual = FindObjectOfType<DialogVisual>();
-        if (visual != null)
-            visual.StopPreview();
+        _pendingStart = null;
+        if (_hotKeys != null)
+            _hotKeys.enabled = false;
+        if (_activeVisual != null)
+        {
+            _activeVisual.PreviewEnded -= OnPreviewEnded;
+            _activeVisual.StopPreview();
+            _activeVisual = null;
+        }
+        SetControlsVisible(_controlsVisible);
+
+        if (_sceneUsed && !_reloading)
+            StartCoroutine(ReloadRuntime());
+    }
+
+    private void OnPreviewEnded(string note)
+    {
+        _hotKeys.enabled = false;
+        _activeVisual.PreviewEnded -= OnPreviewEnded;
+        _activeVisual = null;
+        PreviewEnded?.Invoke(note);
+        if (!_reloading)
+            StartCoroutine(ReloadRuntime());
+    }
+
+    private void OnDestroy()
+    {
+        if (_instance != this) return;
+        SceneManager.sceneLoaded -= OnSceneLoaded;
+        if (_activeVisual != null)
+            _activeVisual.PreviewEnded -= OnPreviewEnded;
+        _instance = null;
+    }
+
+    private IEnumerator ReloadRuntime()
+    {
+        _reloading = true;
+        foreach (GameObject root in _runtimeScene.GetRootGameObjects())
+        {
+            foreach (MonoBehaviour behaviour in root.GetComponentsInChildren<MonoBehaviour>(true))
+                behaviour.StopAllCoroutines();
+            foreach (VideoPlayer video in root.GetComponentsInChildren<VideoPlayer>(true))
+                video.Stop();
+            foreach (AudioSource audio in root.GetComponentsInChildren<AudioSource>(true))
+                audio.Stop();
+        }
+
+        AsyncOperation load;
+        try
+        {
+#if UNITY_EDITOR
+            load = UnityEditor.SceneManagement.EditorSceneManager.LoadSceneAsyncInPlayMode(
+                _scenePath, new LoadSceneParameters(LoadSceneMode.Single));
+#else
+            load = SceneManager.LoadSceneAsync(_scenePath, LoadSceneMode.Single);
+#endif
+        }
+        catch (Exception e)
+        {
+            _reloading = false;
+            _pendingStart = null;
+            Debug.LogException(e);
+            PreviewFailed?.Invoke("重建预览场景失败：" + e.Message);
+            yield break;
+        }
+        yield return load;
+        _runtimeScene = SceneManager.GetSceneByPath(_scenePath);
+        // Scene loading completes before Start on the new effects and services.
+        yield return null;
+        try
+        {
+            BindRuntimeInput();
+            _sceneUsed = false;
+        }
+        catch (Exception e)
+        {
+            _pendingStart = null;
+            Debug.LogException(e);
+            PreviewFailed?.Invoke("重建预览依赖失败：" + e.Message);
+        }
+        _reloading = false;
+        Action start = _pendingStart;
+        _pendingStart = null;
+        if (start != null)
+        {
+            try { start(); }
+            catch (Exception e)
+            {
+                Debug.LogException(e);
+                PreviewFailed?.Invoke(e.Message);
+                StopPreview();
+            }
+        }
     }
 
     private static bool HasNonEmptyRowAfter(string[] rows, int rowIndex)
@@ -450,7 +626,7 @@ public class DialogPreviewManager : MonoBehaviour
 
     private static void ValidateJump(DialogPreviewValidationResult result, List<JumpReference> jumps, int lineNumber, int id, string type, string next)
     {
-        string target = next.Trim();
+        string target = next;
         if (type == "#")
         {
             if (target == "END")
@@ -479,18 +655,18 @@ public class DialogPreviewManager : MonoBehaviour
 
     private static void ValidateResources(DialogPreviewValidationResult result, int lineNumber, string[] cells, Dictionary<string, ResourceReference> resourceReferences)
     {
-        string scene = cells[(int)DialogColumn.scene].Trim();
+        string scene = cells[(int)DialogColumn.scene];
         if (!IsEmptyResourceValue(scene))
         {
             string scenePath = DialogVisual.GetScenePic(scene);
             RegisterResource(resourceReferences, lineNumber, "场景", scenePath, ResourceKind.Sprite);
         }
 
-        string portrait = cells[(int)DialogColumn.pic].Trim();
+        string portrait = cells[(int)DialogColumn.pic];
         if (!IsEmptyResourceValue(portrait))
             RegisterResource(resourceReferences, lineNumber, "头像", DialogCharacterResources.GetHeadPath(portrait), ResourceKind.Sprite);
 
-        string opponent = cells[(int)DialogColumn.potrait].Trim();
+        string opponent = cells[(int)DialogColumn.potrait];
         if (!IsEmptyResourceValue(opponent))
         {
             string[] opponents = opponent.Split('+');
@@ -501,7 +677,7 @@ public class DialogPreviewManager : MonoBehaviour
 
             for (int i = 0; i < opponents.Length; i++)
             {
-                string path = opponents[i].Trim();
+                string path = opponents[i];
                 if (string.IsNullOrEmpty(path))
                     result.Errors.Add($"第 {lineNumber} 行的对手立绘存在空名称。");
                 else
@@ -509,26 +685,26 @@ public class DialogPreviewManager : MonoBehaviour
             }
         }
 
-        string cg = cells[(int)DialogColumn.cg].Trim();
+        string cg = cells[(int)DialogColumn.cg];
         if (!IsEmptyResourceValue(cg) && cg != "转场")
         {
             RegisterResource(resourceReferences, lineNumber, "CG/视频", DialogCGResources.GetPath(cg), ResourceKind.SpriteOrVideo);
         }
 
-        string music = cells[(int)DialogColumn.music].Trim();
+        string music = cells[(int)DialogColumn.music];
         if (!IsEmptyResourceValue(music))
             RegisterResource(resourceReferences, lineNumber, "音乐", "Audio/Music/" + music, ResourceKind.Audio);
 
-        string sfx = cells[(int)DialogColumn.sound].Trim();
+        string sfx = cells[(int)DialogColumn.sound];
         if (!IsEmptyResourceValue(sfx))
         {
             foreach (string rawPath in sfx.Split('+'))
             {
-                string path = rawPath.Trim();
+                string path = rawPath;
                 if (string.IsNullOrEmpty(path))
                     result.Errors.Add($"第 {lineNumber} 行的音效字段存在空名称。");
                 else
-                    RegisterResource(resourceReferences, lineNumber, "音效", "SFX/" + path, ResourceKind.Audio);
+                    RegisterResource(resourceReferences, lineNumber, "音效", "Audio/SFX/" + path, ResourceKind.Audio);
             }
         }
     }
@@ -540,7 +716,6 @@ public class DialogPreviewManager : MonoBehaviour
 
     private static void RegisterResource(Dictionary<string, ResourceReference> resourceReferences, int lineNumber, string label, string path, ResourceKind kind)
     {
-        path = NormalizeResourcePath(path);
         if (string.IsNullOrEmpty(path))
             return;
 
@@ -611,9 +786,8 @@ public class DialogPreviewManager : MonoBehaviour
 
     private static string GetCsvValueSuggestion(string label, string resourcePath)
     {
-        string automaticPrefix = label == "头像" ? "Head/"
-            : label == "音乐" ? "Audio/Music/"
-            : label == "音效" ? "SFX/"
+        string automaticPrefix = label == "音乐" ? "Audio/Music/"
+            : label == "音效" ? "Audio/SFX/"
             : string.Empty;
 
         return !string.IsNullOrEmpty(automaticPrefix) && resourcePath.StartsWith(automaticPrefix, StringComparison.OrdinalIgnoreCase)
@@ -625,13 +799,15 @@ public class DialogPreviewManager : MonoBehaviour
     {
         string normalized = NormalizeResourcePath(path);
         var candidates = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        candidates.Add(normalized);
 
         if (normalized.StartsWith("Resources/", StringComparison.OrdinalIgnoreCase))
             candidates.Add(normalized.Substring("Resources/".Length));
 
-        AddDuplicatePrefixCandidate(candidates, normalized, "Head/");
+        AddDuplicatePrefixCandidate(candidates, normalized, "Characters/Head/");
+        AddDuplicatePrefixCandidate(candidates, normalized, "Characters/Body/");
         AddDuplicatePrefixCandidate(candidates, normalized, "Audio/Music/");
-        AddDuplicatePrefixCandidate(candidates, normalized, "SFX/");
+        AddDuplicatePrefixCandidate(candidates, normalized, "Audio/SFX/");
 
         string extension = System.IO.Path.GetExtension(normalized);
         if (!string.IsNullOrEmpty(extension))
@@ -643,7 +819,7 @@ public class DialogPreviewManager : MonoBehaviour
             candidates.Add(withoutRoot.Substring(0, withoutRoot.Length - extension.Length));
         }
 
-        candidates.Remove(normalized);
+        candidates.Remove(path);
         return candidates;
     }
 
@@ -696,7 +872,7 @@ public class DialogPreviewManager : MonoBehaviour
         for (int i = 1; i < rows.Length; i++)
         {
             string[] cells = rows[i].Split(',');
-            if (cells.Length > (int)DialogColumn.next && cells[(int)DialogColumn.next].Trim() == "END")
+            if (cells.Length > (int)DialogColumn.next && cells[(int)DialogColumn.next] == "END")
                 return true;
         }
 
@@ -799,10 +975,37 @@ public class DialogPreviewManager : MonoBehaviour
         csvText = NormalizeCsvText(csvText);
 
         var fileName = System.IO.Path.GetFileNameWithoutExtension(filePath);
+        if (string.IsNullOrEmpty(fileName))
+            throw new ArgumentException("预览需要 CSV 文件名，以匹配游戏中的镜头焦点配置。", nameof(filePath));
+
+        StopPreview();
+        if (_reloading)
+        {
+            _pendingStart = () => BeginPreview(csvText, isMiddle, fileName);
+            return;
+        }
+
+        BeginPreview(csvText, isMiddle, fileName);
+    }
+
+    private void BeginPreview(string csvText, bool isMiddle, string fileName)
+    {
         var visual = FindObjectOfType<DialogVisual>();
         if (visual == null)
             throw new InvalidOperationException("场景中找不到 DialogVisual，无法启动预览。");
-        visual.StartPreviewFromText(csvText, isMiddle, fileName);
+        _sceneUsed = true;
+        _activeVisual = visual;
+        _activeVisual.PreviewEnded += OnPreviewEnded;
+        try
+        {
+            visual.StartPreviewFromText(csvText, isMiddle, fileName);
+            PreviewStarted?.Invoke();
+        }
+        catch
+        {
+            StopPreview();
+            throw;
+        }
     }
 
     private static string NormalizeCsvText(string csvText)

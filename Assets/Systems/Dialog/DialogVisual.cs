@@ -20,47 +20,15 @@ public class DialogVisual : SingleCase<DialogVisual>
 
     private static readonly Dictionary<string, Sprite> _spriteCache = new Dictionary<string, Sprite>();
 
-    private sealed class PreviewImageState
-    {
-        private readonly Image _image;
-        private readonly Sprite _sprite;
-        private readonly Color _color;
-        private readonly Vector2 _anchoredPosition;
-        private readonly Vector3 _localPosition;
-        private readonly Vector3 _localScale;
-        private readonly Quaternion _localRotation;
-
-        public Image Image => _image;
-
-        public PreviewImageState(Image image)
-        {
-            _image = image;
-            _sprite = image.sprite;
-            _color = image.color;
-            _anchoredPosition = image.rectTransform.anchoredPosition;
-            _localPosition = image.rectTransform.localPosition;
-            _localScale = image.rectTransform.localScale;
-            _localRotation = image.rectTransform.localRotation;
-        }
-
-        public void Restore()
-        {
-            if (_image == null) return;
-
-            PicSwaper swaper = _image.GetComponent<PicSwaper>();
-            swaper?.PicHideImmediate();
-            swaper?.CleanClones();
-            _image.sprite = _sprite;
-            _image.color = _color;
-            _image.rectTransform.anchoredPosition = _anchoredPosition;
-            _image.rectTransform.localPosition = _localPosition;
-            _image.rectTransform.localScale = _localScale;
-            _image.rectTransform.localRotation = _localRotation;
-        }
-    }
-
-    private readonly List<PreviewImageState> _previewImageStates = new List<PreviewImageState>();
-    private bool _hasPreviewBaseline;
+    [SerializeField] private bool previewOnly;
+    private DialogList _previewDialogList;
+    private DialogStatDataSO _previewStatDataOriginal;
+    private DialogStatDataSO _previewStatDataCopy;
+    private TextAsset _previewDialogFileOriginal;
+    private readonly HashSet<int> _previewReadLines = new HashSet<int>();
+    private int _previewDialogIndex = -1;
+    public bool IsPreviewScene => previewOnly;
+    public bool PreviewInputEnabled { get; set; }
 
     private void OnDisable()
     {
@@ -168,6 +136,7 @@ public class DialogVisual : SingleCase<DialogVisual>
     public Action OnTextDisplayEnd;
     public Action OnTextDisplayDelay;
     public Action OnTextDisplayStart;
+    public event Action<string> PreviewEnded;
 
     public TextAsset dialogFile;
     public string previewFileName;
@@ -475,7 +444,7 @@ public class DialogVisual : SingleCase<DialogVisual>
         var cell = sfx.Split('+');
         if (cell.Length > 0) foreach (string s in cell)
         {
-            SoundsManager.Instance.PlaySfx("SFX/" + s);
+            SoundsManager.Instance.PlaySfx("Audio/SFX/" + s);
         }
     }
 
@@ -886,10 +855,7 @@ private IEnumerator UpdateOpponentPicAsync(DialogNode tmp, bool instant = false)
 
         DialogNode tmp = tree.ShowDialog();
         if (tmp.type == DialogType.End && tmp.content == "") { return; }
-        if (!IsPreviewMode && _lastShownDialogIndex >= 0)
-        {
-            ReadDialogHistory?.MarkAsShown(DialogList.Instance.currentIndex, _lastShownDialogIndex);
-        }
+        MarkLastLineAsRead();
         _lastShownDialogIndex = tmp.index;
         //Debug.Log(tmp.cg);
         if (TextPrintCor != null) { StopCoroutine(TextPrintCor); TextPrintCor = null; }
@@ -1029,21 +995,22 @@ private IEnumerator UpdateOpponentPicAsync(DialogNode tmp, bool instant = false)
 
     private void EndDialog()
     {
+        if (previewOnly && !IsPreviewMode) return;
         if (_endingDialog) return;
         _endingDialog = true;
 
-        // 预览结束后立即回到启动预览前的基线，不能把最后一帧、选项或音频带入下一次预览。
+        MarkLastLineAsRead();
+        // Preview completion returns to the editor without invoking gameplay events.
         if (IsPreviewMode)
         {
+            string note = tree.ShowDialog().note;
+            string fileName = previewFileName;
             StopPreview();
+            PreviewEnded?.Invoke(string.IsNullOrEmpty(note) ? fileName : note);
             return;
         }
 
         SoundsManager.Instance.ClearMusicClip();
-        if (_lastShownDialogIndex >= 0)
-        {
-            ReadDialogHistory?.MarkAsShown(DialogList.Instance.currentIndex, _lastShownDialogIndex);
-        }
 
         //Debug.LogWarning(tree.ShowDialog().index);
         monitoringMouse = false;
@@ -1079,7 +1046,8 @@ private IEnumerator UpdateOpponentPicAsync(DialogNode tmp, bool instant = false)
     /// </summary>
     public void ClickAdvance()
     {
-        if (SaveSystem.Instance.saveRoutine != null) return;
+        if (previewOnly && (!IsPreviewMode || !PreviewInputEnabled)) return;
+        if (!previewOnly && SaveSystem.Instance.saveRoutine != null) return;
         if (skipLoading) return;
         if (IsSkip) return;
         if (IsHistory) return;
@@ -1121,6 +1089,7 @@ private IEnumerator UpdateOpponentPicAsync(DialogNode tmp, bool instant = false)
 
     public void AutoProcceed()
     {
+        if (previewOnly && !IsPreviewMode) return;
         if (_picProcessCor != null) return;
         if (ForceNoClickSkip)
         {
@@ -1191,12 +1160,28 @@ private IEnumerator UpdateOpponentPicAsync(DialogNode tmp, bool instant = false)
 
     private bool HasShownCurrentDialogLine()
     {
+        if (IsPreviewMode)
+        {
+            return _previewReadLines.Contains(currentIndex)
+                || (_previewDialogIndex >= 0 && ReadDialogHistory != null
+                    && ReadDialogHistory.HasShown(_previewDialogIndex, currentIndex));
+        }
+
         if (ReadDialogHistory == null)
         {
             return true;
         }
 
         return ReadDialogHistory.HasShown(DialogList.Instance.currentIndex, currentIndex);
+    }
+
+    private void MarkLastLineAsRead()
+    {
+        if (_lastShownDialogIndex < 0) return;
+        if (IsPreviewMode)
+            _previewReadLines.Add(_lastShownDialogIndex);
+        else
+            ReadDialogHistory?.MarkAsShown(DialogList.Instance.currentIndex, _lastShownDialogIndex);
     }
 
     private IEnumerator SkipUntil(int index)
@@ -1268,7 +1253,8 @@ private IEnumerator UpdateOpponentPicAsync(DialogNode tmp, bool instant = false)
     
     private bool CheckClick()
     {
-        if (SaveSystem.Instance.saveRoutine != null)
+        if (previewOnly && (!IsPreviewMode || !PreviewInputEnabled)) return false;
+        if (!previewOnly && SaveSystem.Instance.saveRoutine != null)
         {
             return false;
         }
@@ -1361,12 +1347,11 @@ private IEnumerator UpdateOpponentPicAsync(DialogNode tmp, bool instant = false)
         }
     }
     /// <summary>
-    /// 停止当前预览并还原预览启动前的画面、输入、选项和音频状态。
-    /// 仅由 DialogPreview 调用，避免把预览中的临时对象和协程遗留到下一段对话。
+    /// 停止预览输入和临时数值；场景及效果的重建由 DialogPreviewManager 负责。
     /// </summary>
     public void StopPreview()
     {
-        if (!IsPreviewMode && !_hasPreviewBaseline) return;
+        if (!IsPreviewMode) return;
 
         StopAllCoroutines();
         skipRoutine = null;
@@ -1383,15 +1368,26 @@ private IEnumerator UpdateOpponentPicAsync(DialogNode tmp, bool instant = false)
         IsUIHidden = false;
         PrintOnHold = false;
         ForceNoClickSkip = false;
-        clickDelay = 0;
         currentType = DialogType.End;
         _lastShownDialogIndex = -1;
         _tagStack.Clear();
         unclosedTagCache = "";
 
+        foreach (AutoButton button in transform.root.GetComponentsInChildren<AutoButton>(true))
+        {
+            Toggle toggle = button.GetComponent<Toggle>();
+            if (toggle.isOn) toggle.isOn = false;
+        }
+        foreach (HistoryButton button in transform.root.GetComponentsInChildren<HistoryButton>(true))
+        {
+            Toggle toggle = button.GetComponent<Toggle>();
+            if (toggle.isOn) toggle.isOn = false;
+        }
+        clickDelay = 0;
+
         ClearPreviewChoices();
         DestroyPreviewDoublePortrait();
-        RestorePreviewBaseline();
+        ReleasePreviewData();
 
         if (SoundsManager.Instance != null)
         {
@@ -1410,50 +1406,65 @@ private IEnumerator UpdateOpponentPicAsync(DialogNode tmp, bool instant = false)
 
     public void StartPreviewFromText(string csvText, bool isMiddle, string fileName)
     {
-        StopPreview();
-        CapturePreviewBaseline();
+        if (!previewOnly)
+            throw new InvalidOperationException("StartPreviewFromText 只能在配置了 previewOnly 的预览场景中运行。");
+        if (IsPreviewMode)
+            throw new InvalidOperationException("重新预览前必须重建预览场景。");
+
+        DialogList dialogList = DialogList.Instance;
+        if (dialogList == null || dialogList.statData == null)
+            throw new InvalidOperationException("预览场景缺少 DialogList 或 DialogStatDataSO，无法模拟游戏中的剧情数值。");
+
+        _previewDialogList = dialogList;
+        _previewDialogFileOriginal = dialogFile;
 
         _endingDialog = false;
         Loaading = true;
         monitoringMouse = false;
         previewFileName = fileName;
+        _previewDialogIndex = dialogList.dialogs.FindIndex(dialog => dialog.name == fileName);
+        _previewReadLines.Clear();
         currentType = DialogType.End;
-        tree.BuildTreeFromText(csvText);
-        PicRSetMiddleEffect.Instance.StartEffect(isMiddle);
-        StartDialog(0);
-    }
-
-    private void CapturePreviewBaseline()
-    {
-        if (_hasPreviewBaseline) return;
-
-        AddPreviewImageState(Background);
-        AddPreviewImageState(Head);
-        AddPreviewImageState(CG);
-        if (VisualLocator.Instance != null)
+        try
         {
-            AddPreviewImageState(PicL);
-            AddPreviewImageState(PicR);
+            dialogFile = null;
+            _previewStatDataOriginal = dialogList.statData;
+            _previewStatDataCopy = Instantiate(_previewStatDataOriginal);
+            _previewStatDataCopy.LoadFromEntries(_previewStatDataOriginal.GetAllEntries());
+            dialogList.statData = _previewStatDataCopy;
+
+            tree.BuildTreeFromText(csvText);
+            StartDialog(0);
+            PicRSetMiddleEffect.Instance.StartEffect(isMiddle);
         }
-
-        _hasPreviewBaseline = true;
+        catch
+        {
+            StopPreview();
+            throw;
+        }
     }
 
-    private void AddPreviewImageState(Image image)
+    private void ReleasePreviewData()
     {
-        if (image == null || _previewImageStates.Exists(state => state.Image == image)) return;
-        _previewImageStates.Add(new PreviewImageState(image));
+        if (_previewDialogList == null && _previewStatDataCopy == null) return;
+        if (_previewStatDataCopy != null)
+        {
+            // Scene teardown can destroy DialogList before this component.
+            if (_previewDialogList != null)
+                _previewDialogList.statData = _previewStatDataOriginal;
+            Destroy(_previewStatDataCopy);
+            _previewStatDataCopy = null;
+            _previewStatDataOriginal = null;
+        }
+        _previewDialogList = null;
+        dialogFile = _previewDialogFileOriginal;
+        _previewDialogFileOriginal = null;
     }
 
-    private void RestorePreviewBaseline()
+    protected override void OnDestroy()
     {
-        if (!_hasPreviewBaseline) return;
-
-        foreach (PreviewImageState state in _previewImageStates)
-            state.Restore();
-
-        _previewImageStates.Clear();
-        _hasPreviewBaseline = false;
+        ReleasePreviewData();
+        base.OnDestroy();
     }
 
     private void ClearPreviewChoices()

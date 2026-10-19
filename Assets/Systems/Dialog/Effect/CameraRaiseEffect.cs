@@ -9,9 +9,9 @@ public class CameraRaiseEffect : MonoBehaviour, IEffect
     public float scaleMultiplier = 1.1f;
 
     private Coroutine _slideCoroutine;
-    private static Vector3 _originalScale;
-    private static Vector2 _originalAnchoredPos;
-    private static bool initialized = false;
+    private Vector3 _originalScale;
+    private Vector2 _originalAnchoredPos;
+    private bool initialized = false;
     private bool _isRunning;
 
     [SerializeField] private RectTransform Pic;
