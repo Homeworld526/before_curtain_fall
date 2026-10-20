@@ -84,6 +84,37 @@ public class DialogTree
         }
         return tree[tree[currentIndex].links[0].targetIndex];
     }
+
+    /// <summary>
+    /// 沿确定的后续路径查找下一张背景，遇到尚未选择的分支时停止。
+    /// 对话表允许场景列留空并继承上一行，因此自动转场不能只看紧邻节点。
+    /// </summary>
+    public DialogNode ShowNextBackgroundDialog(string currentScene, out List<DialogNode> transitionPath)
+    {
+        transitionPath = new List<DialogNode>();
+        if (currentIndex < 0 || currentIndex >= tree.Count)
+            return null;
+
+        HashSet<int> visited = new HashSet<int> { currentIndex };
+        DialogNode cursor = tree[currentIndex];
+        bool currentSceneIsEmpty = string.IsNullOrEmpty(currentScene) || currentScene == emptyChar;
+        transitionPath.Add(cursor);
+
+        while (cursor.links.Count == 1)
+        {
+            int targetIndex = cursor.links[0].targetIndex;
+            if (targetIndex < 0 || targetIndex >= tree.Count || !visited.Add(targetIndex))
+                return null;
+
+            cursor = tree[targetIndex];
+            bool hasBackground = !string.IsNullOrEmpty(cursor.scene) && cursor.scene != emptyChar;
+            if (hasBackground && (currentSceneIsEmpty || cursor.scene != currentScene))
+                return cursor;
+            transitionPath.Add(cursor);
+        }
+
+        return null;
+    }
     
     public List<DialogNode> ShowChoices()
     {
@@ -206,6 +237,10 @@ public class DialogTree
             string[] newCell = dialogRows[i].Split(',');
             //Debug.Log(dialogRows[i]);
             if (newCell.Length <= (int)DialogColumn.ID || newCell[(int)DialogColumn.ID] == "") break;
+            // 转场只在配置行执行；其后的空白演出列应保持 CG 隐藏。
+            if (DialogCGResources.IsAutoTransitionCommand(cell[(int)DialogColumn.cg])
+                || DialogCGResources.IsAutoTransitionCommand(cell[(int)DialogColumn.backup]))
+                cell[(int)DialogColumn.cg] = emptyChar;
             for (int j = 0; j <= (int)DialogColumn.cg; j++)
             {
                 if (newCell[j] != "")

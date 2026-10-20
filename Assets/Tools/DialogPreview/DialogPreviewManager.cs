@@ -686,7 +686,7 @@ public class DialogPreviewManager : MonoBehaviour
         }
 
         string cg = cells[(int)DialogColumn.cg];
-        if (!IsEmptyResourceValue(cg) && cg != "转场")
+        if (!IsEmptyResourceValue(cg) && cg != "转场" && !DialogCGResources.IsAutoTransitionCommand(cg))
         {
             RegisterResource(resourceReferences, lineNumber, "CG/视频", DialogCGResources.GetPath(cg), ResourceKind.SpriteOrVideo);
         }

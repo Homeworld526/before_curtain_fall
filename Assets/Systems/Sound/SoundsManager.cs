@@ -539,25 +539,33 @@ public class SoundsManager : SingleCase<SoundsManager>
     /// <param name="path">可选：音效文件路径。如果未提前设置，需传入此参数</param>
     public void PlaySfx(string path = null)
     {
-        if (!isInit) return;
+        TryPlaySfx(path);
+    }
+
+    /// <summary>
+    /// 尝试播放音效，返回是否已成功加载并提交播放。
+    /// </summary>
+    public bool TryPlaySfx(string path = null)
+    {
+        if (!isInit) return false;
         string sfxPath = path ?? _currentSfxPath;
         if (string.IsNullOrEmpty(sfxPath))
         {
             Debug.LogWarning("[SoundsManager] 未设置音效文件路径");
-            return;
+            return false;
         }
 
-        LoadAndPlaySfx(sfxPath);
+        return LoadAndPlaySfx(sfxPath);
     }
 
-    private void LoadAndPlaySfx(string path)
+    private bool LoadAndPlaySfx(string path)
     {
         // 获取一个空闲的音效源
         AudioSource sfxSource = GetFreeSfxSource();
         if (sfxSource == null)
         {
             Debug.LogError("[SoundsManager] 无法获取音效源");
-            return;
+            return false;
         }
 
         // 从 Resources 加载音频
@@ -568,11 +576,10 @@ public class SoundsManager : SingleCase<SoundsManager>
             sfxSource.Play();
             // 启动协程，播放完毕后清空 clip 释放资源
             StartCoroutine(ReleaseSfxSourceAfterPlay(sfxSource));
+            return true;
         }
-        else
-        {
-            ///Debug.LogError($"[SoundsManager] 音效加载失败：{path}");
-        }
+
+        return false;
     }
 
     /// <summary>

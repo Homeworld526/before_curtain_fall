@@ -12,8 +12,22 @@ using Microsoft.International.Converters.TraditionalChineseToSimplifiedConverter
 using System.Runtime.InteropServices.WindowsRuntime;
 using Object = UnityEngine.Object;
 
+[RequireComponent(typeof(ScreenShakeEffect))]
 public class DialogVisual : SingleCase<DialogVisual>
 {
+    private const float AutoTransitionFadeInDuration = 1f;
+    private const float AutoTransitionFadeOutDuration = 0.3f;
+
+    private static bool IsAutoTransitionCommand(string value)
+    {
+        return DialogCGResources.IsAutoTransitionCommand(value);
+    }
+
+    private static bool ShouldAutoTransition(DialogNode dialog)
+    {
+        return IsAutoTransitionCommand(dialog.cg) || IsAutoTransitionCommand(dialog.note);
+    }
+
     [SerializeField] private Ending ending;
     
     public Action<DialogNode> ContentTracker;
@@ -98,7 +112,9 @@ public class DialogVisual : SingleCase<DialogVisual>
     
     public string GetCG()
     {
-        return tree.ShowDialog().cg == "空"? "" : tree.ShowDialog().cg;
+        DialogNode dialog = tree.ShowDialog();
+        string cg = dialog.cg;
+        return cg == "空" || cg == "转场" || ShouldAutoTransition(dialog) ? "" : cg;
     }
     
     public string GetContent()
@@ -108,7 +124,7 @@ public class DialogVisual : SingleCase<DialogVisual>
     
     public string GetBackGround()
     {
-        return GetScenePic(tree.ShowDialog().scene);
+        return GetScenePic(GetBackgroundScene(tree.ShowDialog()));
     }
 
     public string GetNextBackGround()
@@ -117,7 +133,7 @@ public class DialogVisual : SingleCase<DialogVisual>
         {
             return GetScenePic("对话背景-小平房间");
         }
-        return GetScenePic(tree.ShowNextDialog().scene);
+        return GetScenePic(GetBackgroundScene(tree.ShowNextDialog()));
     }
 
     public string GetMusic()
@@ -146,6 +162,9 @@ public class DialogVisual : SingleCase<DialogVisual>
     private Coroutine TextPrintCor;
     private Coroutine _picProcessCor;
     private Coroutine _soundProcessCor;
+    private ScreenShakeEffect _shakeEffect;
+    private int _autoTransitionProcessedIndex = -1;
+    private readonly Dictionary<int, string> _autoTransitionScenes = new Dictionary<int, string>();
     public float TextPrintInterval
     {
         get => SettingManager.Instance.settings.PrintSpeed;
@@ -340,6 +359,7 @@ public class DialogVisual : SingleCase<DialogVisual>
         base.Awake();
         if (!IsPrimaryInstance) return;
 
+        _shakeEffect = GetComponent<ScreenShakeEffect>();
         if (ReadDialogHistory == null)
         {
             ReadDialogHistory = ScriptableObject.CreateInstance<ReadDialogHistorySO>();
@@ -354,12 +374,14 @@ public class DialogVisual : SingleCase<DialogVisual>
     
     public void DialogStart()
     {
+        _shakeEffect.ResetEffect();
         StopAllCoroutines();
         skipRoutine = null;
         LoadRoutine = null;
         TextPrintCor = null;
         _picProcessCor = null;
         _soundProcessCor = null;
+        _autoTransitionProcessedIndex = -1;
         _endingDialog = false;
         Loaading = true;
         monitoringMouse = false;
@@ -376,7 +398,9 @@ public class DialogVisual : SingleCase<DialogVisual>
 
     public void DialogStart(int skipTo)
     {
+        _shakeEffect.ResetEffect();
         StopAllCoroutines();
+        _autoTransitionProcessedIndex = -1;
         _endingDialog = false;
         Loaading = true;
         monitoringMouse = false;
@@ -475,6 +499,41 @@ public class DialogVisual : SingleCase<DialogVisual>
         else
         {
             if (Head.color.a == 1f) Head.GetComponent<PicSwaper>()?.PicHide();
+        }
+    }
+
+    private void PlayVisualShakes(DialogNode dialog)
+    {
+        bool hasPortrait = dialog.illustration_opponent != "空" && dialog.illustration_opponent != "";
+        bool hasHead = dialog.illustration != "空" && dialog.illustration != "";
+        foreach (string token in dialog.note.Split('+'))
+        {
+            string command = token.Trim();
+            Image target;
+            switch (command)
+            {
+                case "正立绘抖动":
+                    target = hasPortrait ? PicR : null;
+                    break;
+                case "左立绘抖动":
+                    target = hasPortrait ? PicRAlt : null;
+                    break;
+                case "右立绘抖动":
+                    target = hasPortrait && PicRAlt != null ? PicR : null;
+                    break;
+                case "头像框抖动":
+                    target = hasHead ? Head : null;
+                    break;
+                default:
+                    continue;
+            }
+
+            if (target == null)
+            {
+                Debug.LogWarning($"[DialogVisual] {command} 没有对应的显示对象，请检查本行头像、立绘及双立绘配置 (dialog ID {dialog.index})", this);
+                continue;
+            }
+            _shakeEffect.Shake(target.rectTransform);
         }
     }
 
@@ -706,10 +765,16 @@ private IEnumerator UpdateOpponentPicAsync(DialogNode tmp, bool instant = false)
         }
     }
 
+    private string GetBackgroundScene(DialogNode dialog)
+    {
+        return _autoTransitionScenes.TryGetValue(dialog.index, out string scene) ? scene : dialog.scene;
+    }
+
     private IEnumerator UpdateBackgroundAsync(DialogNode tmp, bool instantTransition = false)
     {
         var bgSwaper = Background.GetComponent<PicSwaper>();
-        string scenePicPath = GetScenePic(tmp.scene);
+        string scene = GetBackgroundScene(tmp);
+        string scenePicPath = GetScenePic(scene);
         Sprite scenePic = null;
         yield return StartCoroutine(LoadSpriteAsync(scenePicPath, s => scenePic = s));
 
@@ -729,7 +794,7 @@ private IEnumerator UpdateOpponentPicAsync(DialogNode tmp, bool instant = false)
                 bgSwaper?.PicChangeWGradiant(scenePic);
         }
 
-        if (tmp.scene.StartsWith("场景") && scenePic != null)
+        if (scene.StartsWith("场景") && scenePic != null)
             StatEventCenter.Instance.PicRead(scenePic.name);
 
         if (spriteChanged)
@@ -739,13 +804,104 @@ private IEnumerator UpdateOpponentPicAsync(DialogNode tmp, bool instant = false)
         }
     }
 
-    private IEnumerator PicProcessAsync()
+    private void ApplyBackgroundSprite(DialogNode sceneDialog, Sprite scenePic)
     {
-        DialogNode tmp = tree.ShowDialog();
-        bool isFirstLine = tmp.index == startLine;
+        string previousSpriteName = Background.sprite != null ? Background.sprite.name : null;
+        bool spriteChanged = scenePic != null && previousSpriteName != null && scenePic.name != previousSpriteName;
 
+        // 黑幕期间直接落到目标图，结束背景自身正在运行的旧切图动画，避免旧动画在黑幕后覆盖目标图。
+        Background.GetComponent<PicSwaper>().PicShowImmediate();
+        Background.sprite = scenePic;
+
+        if (sceneDialog.scene.StartsWith("场景") && scenePic != null)
+            StatEventCenter.Instance.PicRead(scenePic.name);
+
+        if (spriteChanged)
+        {
+            _spriteCache.Remove(previousSpriteName);
+            Resources.UnloadUnusedAssets();
+        }
+    }
+
+    private IEnumerator UpdateBackgroundWithAutoTransitionAsync(DialogNode tmp)
+    {
+        // 普通背景切换使用独立的滑动协程，先取消它，避免黑幕后旧协程再次写回旧图。
+        PPTSwipeShaderGradientEdge.Instance.CancelSwipe();
+        bool previousForceNoClickSkip = ForceNoClickSkip;
+        ForceNoClickSkip = true;
+        try
+        {
+            DialogNode nextDialog = tree.ShowNextBackgroundDialog(tmp.scene, out List<DialogNode> transitionPath);
+            if (nextDialog == null)
+            {
+                Debug.LogWarning($"[DialogVisual] 自动转场未找到下一张背景 (dialog ID {tmp.index})");
+                yield break;
+            }
+
+            string nextScenePicPath = GetScenePic(nextDialog.scene);
+
+            Sprite nextScenePic = null;
+            yield return StartCoroutine(LoadSpriteAsync(nextScenePicPath, s => nextScenePic = s));
+            if (nextScenePic == null)
+            {
+                Debug.LogError($"[DialogVisual] 自动转场的下一背景不存在：Resources/{nextScenePicPath} (dialog ID {tmp.index})");
+                yield break;
+            }
+
+            BlackoutTransition blackout = BlackoutTransition.Instance;
+            if (blackout == null)
+            {
+                Debug.LogError("[DialogVisual] 自动转场需要场景中的 BlackoutTransition，当前场景未配置；将立即切换背景。");
+                CompleteAutoTransition(nextDialog, nextScenePic, transitionPath);
+                yield break;
+            }
+
+            bool transitionComplete = false;
+            bool backgroundChanged = false;
+            blackout.FadeInWithCallback(
+                () =>
+                {
+                    CompleteAutoTransition(nextDialog, nextScenePic, transitionPath);
+                    backgroundChanged = true;
+                },
+                fadeInDuration: AutoTransitionFadeInDuration,
+                holdDuration: 0f,
+                fadeOutDuration: AutoTransitionFadeOutDuration,
+                onComplete: () => transitionComplete = true);
+
+            while (!transitionComplete)
+            {
+                if (!blackout.IsTransitioning)
+                {
+                    Debug.LogError($"[DialogVisual] 自动转场在黑幕完成前被中断 (dialog ID {tmp.index})");
+                    yield break;
+                }
+                yield return null;
+            }
+
+            if (!backgroundChanged)
+                Debug.LogError($"[DialogVisual] 自动转场未能在黑幕期间切换背景 (dialog ID {tmp.index})");
+        }
+        finally
+        {
+            ForceNoClickSkip = previousForceNoClickSkip;
+        }
+    }
+
+    private void CompleteAutoTransition(DialogNode nextDialog, Sprite nextScenePic, List<DialogNode> transitionPath)
+    {
+        // 中间对白仍继承旧场景，记录已提前切换的背景，直到实际背景行接管。
+        foreach (DialogNode dialog in transitionPath)
+            _autoTransitionScenes[dialog.index] = nextDialog.scene;
+
+        CG.GetComponent<PicSwaper>().PicHideImmediate();
+        ApplyBackgroundSprite(nextDialog, nextScenePic);
+    }
+
+    private IEnumerator UpdateCGAsync(DialogNode tmp, bool isFirstLine)
+    {
         // CG: 只根据 cg 字段决定显示/隐藏
-        bool hasCG = tmp.cg != "空" && tmp.cg != "转场" && tmp.cg != "";
+        bool hasCG = tmp.cg != "空" && tmp.cg != "转场" && !IsAutoTransitionCommand(tmp.cg) && tmp.cg != "";
         if (hasCG)
         {
             string cgPath = DialogCGResources.GetPath(tmp.cg);
@@ -814,6 +970,17 @@ private IEnumerator UpdateOpponentPicAsync(DialogNode tmp, bool instant = false)
                 ClearSpriteCache();
             }
         }
+    }
+
+    private IEnumerator PicProcessAsync()
+    {
+        DialogNode tmp = tree.ShowDialog();
+        bool isFirstLine = tmp.index == startLine;
+        bool isAutoTransition = ShouldAutoTransition(tmp);
+
+        // 自动转场保留当前画面，在全黑时统一隐藏 CG 并更换背景。
+        if (!isAutoTransition)
+            yield return StartCoroutine(UpdateCGAsync(tmp, isFirstLine));
 
         // PicR: 只根据 illustration_opponent 字段决定显示/隐藏
         bool hasPicR = tmp.illustration_opponent != "空" && tmp.illustration_opponent != "";
@@ -840,7 +1007,17 @@ private IEnumerator UpdateOpponentPicAsync(DialogNode tmp, bool instant = false)
             if (Head.color.a >= 0.99f) Head.GetComponent<PicSwaper>().PicHide();
         }
 
-        yield return StartCoroutine(UpdateBackgroundAsync(tmp, instantTransition: isFirstLine));
+        // Resolve shake targets after this line has created and positioned both portraits.
+        PlayVisualShakes(tmp);
+
+        bool shouldAutoTransition = isAutoTransition && _autoTransitionProcessedIndex != tmp.index;
+        if (shouldAutoTransition)
+        {
+            _autoTransitionProcessedIndex = tmp.index;
+            yield return StartCoroutine(UpdateBackgroundWithAutoTransitionAsync(tmp));
+        }
+        else
+            yield return StartCoroutine(UpdateBackgroundAsync(tmp, instantTransition: isFirstLine));
         _picProcessCor = null;
     }
 
@@ -855,6 +1032,7 @@ private IEnumerator UpdateOpponentPicAsync(DialogNode tmp, bool instant = false)
 
         DialogNode tmp = tree.ShowDialog();
         if (tmp.type == DialogType.End && tmp.content == "") { return; }
+        _shakeEffect.ResetEffect();
         MarkLastLineAsRead();
         _lastShownDialogIndex = tmp.index;
         //Debug.Log(tmp.cg);
@@ -959,6 +1137,8 @@ private IEnumerator UpdateOpponentPicAsync(DialogNode tmp, bool instant = false)
 
     public void StartDialog(int startIndex)
     {
+        _autoTransitionScenes.Clear();
+        _autoTransitionProcessedIndex = -1;
         ClearSpriteCache();
         _lastShownDialogIndex = -1;
         currentType = DialogType.Normal;
@@ -1353,12 +1533,15 @@ private IEnumerator UpdateOpponentPicAsync(DialogNode tmp, bool instant = false)
     {
         if (!IsPreviewMode) return;
 
+        _shakeEffect.ResetEffect();
         StopAllCoroutines();
         skipRoutine = null;
         LoadRoutine = null;
         TextPrintCor = null;
         _picProcessCor = null;
         _soundProcessCor = null;
+        _autoTransitionProcessedIndex = -1;
+        _autoTransitionScenes.Clear();
         monitoringMouse = false;
         skipLoading = false;
         IsSkip = false;

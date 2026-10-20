@@ -176,11 +176,31 @@ public class PicSwaper : MonoBehaviour, IEffect
         PPTSwipeShaderGradientEdge.Instance.StartSwipe(_image, newPic);
     }
 
+    private void StopPictureAnimations()
+    {
+        // 包括延后一帧的换图回调，避免隐藏后又被旧动画重新显示。
+        StopAllCoroutines();
+        _coroutine = null;
+        _fadeCoroutine = null;
+        videoCoroutine = null;
+        _skipToFinal = false;
+        _skipFadeToFinal = false;
+        CleanClones();
+    }
+
     public void PicHideImmediate()
     {
         if (_image == null) _image = GetComponent<Image>();
-        if (_coroutine != null) { StopCoroutine(_coroutine); _coroutine = null; }
-        if (_fadeCoroutine != null) { StopCoroutine(_fadeCoroutine); _fadeCoroutine = null; }
+        StopPictureAnimations();
+        if (hasVideo)
+        {
+            videoSource.Stop();
+            videoSource.clip = null;
+            var videoColor = videoHolder.color;
+            videoColor.a = 0f;
+            videoHolder.color = videoColor;
+            displayingVideo = false;
+        }
         var c = _image.color; c.a = 0; _image.color = c;
         IsTransParent = true;
     }
@@ -188,8 +208,7 @@ public class PicSwaper : MonoBehaviour, IEffect
     public void PicShowImmediate()
     {
         if (_image == null) _image = GetComponent<Image>();
-        if (_coroutine != null) { StopCoroutine(_coroutine); _coroutine = null; }
-        if (_fadeCoroutine != null) { StopCoroutine(_fadeCoroutine); _fadeCoroutine = null; }
+        StopPictureAnimations();
         var c = _image.color; c.a = 1; _image.color = c;
         IsTransParent = false;
     }
@@ -254,6 +273,7 @@ public class PicSwaper : MonoBehaviour, IEffect
     public void PicShow()
     {
         if (_image == null) _image = GetComponent<Image>();
+        IsTransParent = false;
 
         // 更换图片协程正在执行，跳过到末状态
         if (_coroutine != null)
@@ -281,6 +301,7 @@ public class PicSwaper : MonoBehaviour, IEffect
     public void PicShow(bool reset)
     {
         if (_image == null) _image = GetComponent<Image>();
+        IsTransParent = false;
 
         // 更换图片协程正在执行，跳过到末状态
         if (_coroutine != null)

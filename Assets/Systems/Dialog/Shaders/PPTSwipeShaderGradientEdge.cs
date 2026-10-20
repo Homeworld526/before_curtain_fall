@@ -9,6 +9,8 @@ public class PPTSwipeShaderGradientEdge : SingleCase<PPTSwipeShaderGradientEdge>
     public bool isHorizontal = true; // 横向/纵向刷屏
     public bool isReverse = false;   // 是否反向（横：右→左 | 纵：下→上）
     private RectTransform maskRect;
+    private Coroutine _swipeRoutine;
+    private bool _forceNoClickSkipBeforeSwipe;
     public Image image;
 
     private void OnEnable()
@@ -19,10 +21,25 @@ public class PPTSwipeShaderGradientEdge : SingleCase<PPTSwipeShaderGradientEdge>
 
     public void StartSwipe(Image targetPage, Sprite newSprite)
     {
+        CancelSwipe();
         image.enabled = true;
         maskRect = GetComponent<RectTransform>();
         maskRect.anchoredPosition = new Vector3(-(Screen.width / 2 + maskRect.sizeDelta.x / 2), maskRect.anchoredPosition.y, 0);
-        StartCoroutine(SwipeCoroutine(targetPage, newSprite));
+        _forceNoClickSkipBeforeSwipe = DialogVisual.Instance.ForceNoClickSkip;
+        _swipeRoutine = StartCoroutine(SwipeCoroutine(targetPage, newSprite));
+    }
+
+    public void CancelSwipe()
+    {
+        if (_swipeRoutine != null)
+        {
+            StopCoroutine(_swipeRoutine);
+            _swipeRoutine = null;
+            DialogVisual.Instance.ForceNoClickSkip = _forceNoClickSkipBeforeSwipe;
+        }
+
+        if (image != null)
+            image.enabled = false;
     }
 
     IEnumerator SwipeCoroutine(Image targetPage, Sprite newSprite)
@@ -44,7 +61,8 @@ public class PPTSwipeShaderGradientEdge : SingleCase<PPTSwipeShaderGradientEdge>
             }
             yield return null;
         }
-        DialogVisual.Instance.ForceNoClickSkip = false;
+        DialogVisual.Instance.ForceNoClickSkip = _forceNoClickSkipBeforeSwipe;
         image.enabled = false;
+        _swipeRoutine = null;
     }
 }

@@ -104,10 +104,11 @@ public class BlackoutTransition : MonoBehaviour
         Action onBlackout,
         float fadeInDuration = 0.3f,
         float holdDuration = 0f,
-        float fadeOutDuration = 0.3f)
+        float fadeOutDuration = 0.3f,
+        Action onComplete = null)
     {
         StopCurrent();
-        _currentRoutine = StartCoroutine(FadeInWithCallbackRoutine(onBlackout, fadeInDuration, holdDuration, fadeOutDuration));
+        _currentRoutine = StartCoroutine(FadeInWithCallbackRoutine(onBlackout, fadeInDuration, holdDuration, fadeOutDuration, onComplete));
     }
 
     /// <summary>黑幕直接显示 → 立即回调 → 停留 → 淡出 → 最终回调</summary>
@@ -121,7 +122,7 @@ public class BlackoutTransition : MonoBehaviour
         _currentRoutine = StartCoroutine(FadeOutWithCallbackRoutine(onBlackout, onComplete, holdDuration, fadeOutDuration));
     }
 
-    private IEnumerator FadeInWithCallbackRoutine(Action onBlackout, float fadeIn, float hold, float fadeOut)
+    private IEnumerator FadeInWithCallbackRoutine(Action onBlackout, float fadeIn, float hold, float fadeOut, Action onComplete)
     {
         blackoutInstance.SetActive(true);
         blackoutCG.blocksRaycasts = false;
@@ -131,6 +132,7 @@ public class BlackoutTransition : MonoBehaviour
         yield return StartCoroutine(Fade(1f, 0f, fadeOut));
         blackoutInstance.SetActive(false);
         _currentRoutine = null;
+        onComplete?.Invoke();
     }
 
     private IEnumerator FadeInOutRoutine(Action onComplete, float fadeIn, float hold, float fadeOut)

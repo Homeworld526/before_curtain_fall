@@ -94,6 +94,7 @@ public class SmallTalkController : MonoBehaviour
     private bool waitForClick = false;
     private int lineCount = 0;
     private bool skipRequested = false; // 跳过请求标志
+    private string dialogName;
 
     private void Update()
     {
@@ -163,6 +164,7 @@ public class SmallTalkController : MonoBehaviour
     {
         Debug.Log("[StartTalk] 开始新对话 (手动点击播放模式)");
         init = true;
+        dialogName = asset.name;
         dialogTree.BuildTree(asset);
         dialogTree.StartTree(0);
         
@@ -179,7 +181,7 @@ public class SmallTalkController : MonoBehaviour
         
         StartCoroutine(RestartInvObjectCoroutine());
         
-        OnMoveNext.Invoke(dialogTree.ShowDialog());
+        PresentDialog(dialogTree.ShowDialog());
         isPrinting = true;
         _canvasGroup.blocksRaycasts = true;
         CanvasGroupFader.FadeTo(_canvasGroup, 1f, 0.5f);
@@ -253,7 +255,29 @@ public class SmallTalkController : MonoBehaviour
             return;
         }
         
-        OnMoveNext.Invoke(nextDialog);
+        PresentDialog(nextDialog);
+    }
+
+    private void PresentDialog(DialogNode node)
+    {
+        OnMoveNext.Invoke(node);
+
+        // 音效列不继承上一句；空白和“空”表示本句不触发音效。
+        if (node.type == DialogType.End || string.IsNullOrWhiteSpace(node.sfx))
+            return;
+
+        foreach (string rawName in node.sfx.Split('+'))
+        {
+            string soundName = rawName.Trim();
+            if (soundName.Length == 0 || soundName == "空")
+                continue;
+
+            string path = "Audio/SFX/" + soundName;
+            if (!SoundsManager.Instance.TryPlaySfx(path))
+            {
+                Debug.LogError($"[SmallTalk] 对话表“{dialogName}” ID {node.index} 的音效“{soundName}”播放失败，请检查音效系统初始化及 Resources/{path} 资源。", this);
+            }
+        }
     }
     
     private IEnumerator RestartInvObjectCoroutine()
