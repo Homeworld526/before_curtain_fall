@@ -5931,8 +5931,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   type: 10
-  target: "\u8499\u7248"
-  offtarget: "\u8499\u7248\u7ED3\u675F"
+  target: "\u8499\u7248\u6E10\u5165"
+  offtarget: "\u8499\u7248\u6E10\u51FA"
   on: 0
   oneshot: 0
 --- !u!114 &7132004763581632259

@@ -22,6 +22,7 @@ public class DialogPreviewUI : MonoBehaviour
     private TMP_Text _validationWindowTitle;
     private Button _validationDetailsButton;
     private Button _batchValidationButton;
+    private Button _commandReferenceButton;
     private bool _hasValidationDetails;
     private Canvas _canvas;
     private GraphicRaycaster _raycaster;
@@ -39,6 +40,7 @@ public class DialogPreviewUI : MonoBehaviour
         startBtn.interactable = false;
         CreateValidationDetailsButton();
         CreateBatchValidationButton();
+        CreateCommandReferenceButton();
         CreateValidationWindow();
     }
 
@@ -55,6 +57,8 @@ public class DialogPreviewUI : MonoBehaviour
             _validationDetailsButton.onClick.RemoveListener(ShowLastValidation);
         if (_batchValidationButton != null)
             _batchValidationButton.onClick.RemoveListener(OnBatchValidate);
+        if (_commandReferenceButton != null)
+            _commandReferenceButton.onClick.RemoveListener(ShowCommandReference);
 
         if (_validationWindow != null)
             Destroy(_validationWindow);
@@ -62,6 +66,8 @@ public class DialogPreviewUI : MonoBehaviour
             Destroy(_validationDetailsButton.gameObject);
         if (_batchValidationButton != null)
             Destroy(_batchValidationButton.gameObject);
+        if (_commandReferenceButton != null)
+            Destroy(_commandReferenceButton.gameObject);
     }
 
     private void Update()
@@ -312,6 +318,51 @@ public class DialogPreviewUI : MonoBehaviour
         label.alignment = TextAlignmentOptions.Center;
         label.color = Color.white;
         if (statusText != null) label.font = statusText.font;
+    }
+
+    private void CreateCommandReferenceButton()
+    {
+        if (_commandReferenceButton != null) return;
+
+        var buttonObject = new GameObject("CommandReferenceButton", typeof(RectTransform), typeof(Image), typeof(Button));
+        buttonObject.transform.SetParent(transform, false);
+
+        var rect = buttonObject.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(1f, 1f);
+        rect.anchorMax = new Vector2(1f, 1f);
+        rect.pivot = new Vector2(1f, 1f);
+        rect.anchoredPosition = new Vector2(-394f, -112f);
+        rect.sizeDelta = new Vector2(150f, 36f);
+
+        var image = buttonObject.GetComponent<Image>();
+        image.color = new Color(0.3f, 0.2f, 0.1f, 0.96f);
+
+        _commandReferenceButton = buttonObject.GetComponent<Button>();
+        _commandReferenceButton.targetGraphic = image;
+        _commandReferenceButton.onClick.AddListener(ShowCommandReference);
+
+        var labelObject = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
+        labelObject.transform.SetParent(buttonObject.transform, false);
+        var labelRect = labelObject.GetComponent<RectTransform>();
+        labelRect.anchorMin = Vector2.zero;
+        labelRect.anchorMax = Vector2.one;
+        labelRect.offsetMin = new Vector2(8f, 2f);
+        labelRect.offsetMax = new Vector2(-8f, -2f);
+
+        var label = labelObject.GetComponent<TextMeshProUGUI>();
+        label.text = "剧情指令";
+        label.fontSize = 18f;
+        label.alignment = TextAlignmentOptions.Center;
+        label.color = Color.white;
+        if (statusText != null) label.font = statusText.font;
+    }
+
+    private void ShowCommandReference()
+    {
+        _validationWindowTitle.text = "剧情备注指令";
+        _validationWindowText.text = DialogNoteCommands.AuthoringGuide;
+        _validationWindowText.ForceMeshUpdate();
+        _validationWindow.SetActive(true);
     }
 
     private void CreateValidationWindow()

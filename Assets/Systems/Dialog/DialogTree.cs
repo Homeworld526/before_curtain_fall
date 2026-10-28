@@ -34,6 +34,9 @@ public enum DialogColumn
 public class DialogTree
 {
 
+    private static readonly UTF8Encoding StrictUtf8 = new UTF8Encoding(false, true);
+    private static readonly Encoding Gbk = Encoding.GetEncoding(936);
+
     private DialogNode lastDia;
     private static string emptyChar = "空";
     List<DialogNode> tree = new List<DialogNode>();
@@ -47,7 +50,20 @@ public class DialogTree
         tree.Clear();
         lastDia = null;
         currentIndex = -1;
-        ReadText(Sheet.text);
+        ReadText(DecodeTextAsset(Sheet));
+    }
+
+    private static string DecodeTextAsset(TextAsset sheet)
+    {
+        try
+        {
+            return StrictUtf8.GetString(sheet.bytes);
+        }
+        catch (DecoderFallbackException)
+        {
+            // 旧剧情 CSV 以 GBK 保存；TextAsset.text 会将其中的字节替换为 U+FFFD。
+            return Gbk.GetString(sheet.bytes);
+        }
     }
 
     public void BuildTreeFromText(string text)

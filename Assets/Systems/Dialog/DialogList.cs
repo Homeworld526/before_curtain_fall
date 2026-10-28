@@ -115,6 +115,13 @@ public class DialogList : SingleCase<DialogList>
              hosts[i].GetComponent<IDialogAction>().AddAction();
         }
         DialogAssembler.Instance.Init();
+
+        _hasStarted = true;
+        if (_startDialogAfterInitialization)
+        {
+            _startDialogAfterInitialization = false;
+            StartCurrentDialog();
+        }
     }
 
     public int currentIndex { get; private set; }
@@ -126,6 +133,11 @@ public class DialogList : SingleCase<DialogList>
     /// 由 SaveSystem 在加载流程中控制。
     /// </summary>
     public static bool SuppressAutoDialog { get; set; }
+
+    // OnEnable may run before DialogVisual.Awake while the scene hierarchy is activated.
+    // Delay the initial auto-start until Start, after every active component has run Awake.
+    private bool _hasStarted;
+    private bool _startDialogAfterInitialization;
 
     private void OnEnable()
     {
@@ -149,6 +161,17 @@ public class DialogList : SingleCase<DialogList>
             return;
         }
 
+        if (!_hasStarted)
+        {
+            _startDialogAfterInitialization = true;
+            return;
+        }
+
+        StartCurrentDialog();
+    }
+
+    private void StartCurrentDialog()
+    {
         int line = PlayerPrefs.GetInt("dialogLine", 0);
 
         InvokeDialog(PlayerPrefs.GetInt("dialogIndex"), line);

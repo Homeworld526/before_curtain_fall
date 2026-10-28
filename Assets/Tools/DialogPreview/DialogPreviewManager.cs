@@ -377,6 +377,8 @@ public class DialogPreviewManager : MonoBehaviour
         var resourceReferences = new Dictionary<string, ResourceReference>();
         int expectedId = 1;
         int nodeCount = 0;
+        bool maskEnabled = false;
+        int maskEnabledLine = 0;
 
         for (int rowIndex = 1; rowIndex < rows.Length; rowIndex++)
         {
@@ -456,6 +458,7 @@ public class DialogPreviewManager : MonoBehaviour
                 continue;
             }
 
+            ValidateMaskCommands(result, lineNumber, inheritedCells[(int)DialogColumn.backup], ref maskEnabled, ref maskEnabledLine);
             ValidateNumberPairs(result, lineNumber, inheritedCells[(int)DialogColumn.statName], inheritedCells[(int)DialogColumn.statAmount], "影响数值", "影响量");
             ValidateNumberPairs(result, lineNumber, inheritedCells[(int)DialogColumn.needName], inheritedCells[(int)DialogColumn.needValue], "需要数值", "需求量");
             ValidateJump(result, jumps, lineNumber, id, type, inheritedCells[(int)DialogColumn.next]);
@@ -472,6 +475,9 @@ public class DialogPreviewManager : MonoBehaviour
         }
 
         ValidateResourceReferences(result, resourceReferences);
+
+        if (maskEnabled)
+            result.Warnings.Add($"第 {maskEnabledLine} 行使用了“{DialogNoteCommands.MaskOn}”，但本文件后续未找到“{DialogNoteCommands.MaskOff}”。蒙版会保持开启，请确认这是预期效果。");
 
         if (result.IsValid && !HasEndNode(rows))
             result.Warnings.Add("未找到跳转值为 END 的结束节点；预览可能无法自然结束。");
@@ -594,6 +600,58 @@ public class DialogPreviewManager : MonoBehaviour
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// 模拟 ContentTracker 对备注列的精确匹配，及早提示会导致蒙版状态异常的写法。
+    /// </summary>
+    private static void ValidateMaskCommands(
+        DialogPreviewValidationResult result,
+        int lineNumber,
+        string note,
+        ref bool maskEnabled,
+        ref int maskEnabledLine)
+    {
+        string[] tokens = note.Split('+');
+        for (int i = 0; i < tokens.Length; i++)
+        {
+            string token = tokens[i];
+            if (token == DialogNoteCommands.MaskOn)
+            {
+                if (maskEnabled)
+                    result.Warnings.Add($"第 {lineNumber} 行重复使用“{DialogNoteCommands.MaskOn}”；蒙版已经开启，会从当前强度继续渐入。");
+                else
+                {
+                    maskEnabled = true;
+                    maskEnabledLine = lineNumber;
+                }
+
+                continue;
+            }
+
+            if (token == DialogNoteCommands.MaskOff)
+            {
+                if (!maskEnabled)
+                    result.Warnings.Add($"第 {lineNumber} 行使用了“{DialogNoteCommands.MaskOff}”，但本文件此前没有开启“{DialogNoteCommands.MaskOn}”；蒙版会维持关闭状态。");
+                else
+                {
+                    maskEnabled = false;
+                    maskEnabledLine = 0;
+                }
+
+                continue;
+            }
+
+            string trimmedToken = token.Trim();
+            if (DialogNoteCommands.IsMaskCommand(trimmedToken))
+            {
+                result.Warnings.Add($"第 {lineNumber} 行的“{token}”包含首尾空格。运行时要求精确匹配，请改为“{trimmedToken}”。");
+            }
+            else if (DialogNoteCommands.LooksLikeMaskCommand(token))
+            {
+                result.Warnings.Add($"第 {lineNumber} 行包含未识别的蒙版指令“{token}”。目前只支持“{DialogNoteCommands.MaskOn}”和“{DialogNoteCommands.MaskOff}”。");
+            }
+        }
     }
 
     private static void ValidateNumberPairs(DialogPreviewValidationResult result, int lineNumber, string names, string values, string namesColumn, string valuesColumn)
