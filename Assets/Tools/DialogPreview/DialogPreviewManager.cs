@@ -459,6 +459,7 @@ public class DialogPreviewManager : MonoBehaviour
             }
 
             ValidateMaskCommands(result, lineNumber, inheritedCells[(int)DialogColumn.backup], ref maskEnabled, ref maskEnabledLine);
+            ValidateAutoPlayCommands(result, lineNumber, inheritedCells[(int)DialogColumn.backup]);
             ValidateNumberPairs(result, lineNumber, inheritedCells[(int)DialogColumn.statName], inheritedCells[(int)DialogColumn.statAmount], "影响数值", "影响量");
             ValidateNumberPairs(result, lineNumber, inheritedCells[(int)DialogColumn.needName], inheritedCells[(int)DialogColumn.needValue], "需要数值", "需求量");
             ValidateJump(result, jumps, lineNumber, id, type, inheritedCells[(int)DialogColumn.next]);
@@ -650,6 +651,27 @@ public class DialogPreviewManager : MonoBehaviour
             else if (DialogNoteCommands.LooksLikeMaskCommand(token))
             {
                 result.Warnings.Add($"第 {lineNumber} 行包含未识别的蒙版指令“{token}”。目前只支持“{DialogNoteCommands.MaskOn}”和“{DialogNoteCommands.MaskOff}”。");
+            }
+        }
+    }
+
+    private static void ValidateAutoPlayCommands(DialogPreviewValidationResult result, int lineNumber, string note)
+    {
+        string[] tokens = note.Split('+');
+        for (int i = 0; i < tokens.Length; i++)
+        {
+            string token = tokens[i];
+            if (token == DialogNoteCommands.AutoPlay)
+                continue;
+
+            string trimmedToken = token.Trim();
+            if (trimmedToken == DialogNoteCommands.AutoPlay)
+            {
+                result.Warnings.Add($"第 {lineNumber} 行的“{token}”包含首尾空格。运行时要求精确匹配，请改为“{DialogNoteCommands.AutoPlay}”。");
+            }
+            else if (DialogNoteCommands.LooksLikeAutoPlayCommand(token))
+            {
+                result.Warnings.Add($"第 {lineNumber} 行包含未识别的自动播放指令“{token}”。目前只支持“{DialogNoteCommands.AutoPlay}”。");
             }
         }
     }

@@ -5907,6 +5907,7 @@ MonoBehaviour:
   choicePrefab: {fileID: 3063205307973740173, guid: 1e086c748b1f8cf458c6c5cf9d728f1a, type: 3}
   choiceList: []
   ForceNoClickSkip: 0
+  autoPlayDelaySeconds: 1
   ReadDialogHistory: {fileID: 11400000, guid: e51fdaaff6cee8b42a9b08253dcc1b41, type: 2}
   monitoringMouse: 0
   currentType: 0
