@@ -96,11 +96,11 @@ public class DialogPreviewUI : MonoBehaviour
         SetControlsVisible(true);
     }
 
-    private void OnPreviewEnded(string note)
+    private void OnPreviewEnded(string command)
     {
         SetControlsVisible(true);
-        statusText.text = $"预览结束：{note}";
-        Debug.Log($"[DialogPreview] 对话结束，note={note}");
+        statusText.text = $"预览结束：{command}";
+        Debug.Log($"[DialogPreview] 对话结束，command={command}");
     }
 
     private void OnSelectFile()
@@ -359,8 +359,8 @@ public class DialogPreviewUI : MonoBehaviour
 
     private void ShowCommandReference()
     {
-        _validationWindowTitle.text = "剧情备注指令";
-        _validationWindowText.text = DialogNoteCommands.AuthoringGuide;
+        _validationWindowTitle.text = "剧情指令";
+        _validationWindowText.text = DialogCommands.AuthoringGuide;
         _validationWindowText.ForceMeshUpdate();
         _validationWindow.SetActive(true);
     }

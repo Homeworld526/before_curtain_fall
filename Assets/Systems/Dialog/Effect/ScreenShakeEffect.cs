@@ -5,6 +5,7 @@ using UnityEngine;
 [RequireComponent(typeof(RectTransform))]
 public class ScreenShakeEffect : MonoBehaviour, IEffect
 {
+    private const float DefaultDuration = 0.5f;
     [SerializeField] private float intensity = 8f;
 
     private RectTransform _rect;
@@ -29,6 +30,11 @@ public class ScreenShakeEffect : MonoBehaviour, IEffect
 
     public void Shake(RectTransform target)
     {
+        Shake(target, DefaultDuration);
+    }
+
+    public void Shake(RectTransform target, float duration)
+    {
         if (_shakes.TryGetValue(target, out ShakeState previous))
         {
             StopCoroutine(previous.Routine);
@@ -37,13 +43,12 @@ public class ScreenShakeEffect : MonoBehaviour, IEffect
 
         var state = new ShakeState { Origin = target.anchoredPosition };
         _shakes[target] = state;
-        state.Routine = StartCoroutine(ShakeRoutine(target, state));
+        state.Routine = StartCoroutine(ShakeRoutine(target, state, duration));
     }
 
-    private IEnumerator ShakeRoutine(RectTransform target, ShakeState state)
+    private IEnumerator ShakeRoutine(RectTransform target, ShakeState state, float duration)
     {
         float elapsed = 0f;
-        float duration = 0.5f;
 
         while (elapsed < duration)
         {

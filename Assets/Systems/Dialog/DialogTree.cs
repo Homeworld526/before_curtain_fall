@@ -22,13 +22,14 @@ public enum DialogColumn
     text = 7,
     next = 8,
     sound = 9,
-    backup = 10,
-    statName = 11,
-    statAmount = 12,
-    eventName = 13,
-    needName = 14,
-    needValue = 15,
-    music = 17,
+    command = 10,
+    commandParameter = 11,
+    statName = 12,
+    statAmount = 13,
+    eventName = 14,
+    needName = 15,
+    needValue = 16,
+    music = 18,
 }
 
 public class DialogTree
@@ -79,7 +80,7 @@ public class DialogTree
         if (currentIndex == -1)
         {
             return lastDia == null
-                ? new DialogNode(-1, DialogType.End, "", "END", "END", "END", "END", "END", "", "", ""): lastDia;
+                ? new DialogNode(-1, DialogType.End, "", "END", "END", "END", "END", "END", "", "", "", ""): lastDia;
         }
         //Debug.Log(currentIndex);
         
@@ -255,7 +256,7 @@ public class DialogTree
             if (newCell.Length <= (int)DialogColumn.ID || newCell[(int)DialogColumn.ID] == "") break;
             // 转场只在配置行执行；其后的空白演出列应保持 CG 隐藏。
             if (DialogCGResources.IsAutoTransitionCommand(cell[(int)DialogColumn.cg])
-                || DialogCGResources.IsAutoTransitionCommand(cell[(int)DialogColumn.backup]))
+                || DialogCGResources.IsAutoTransitionCommand(cell[(int)DialogColumn.command]))
                 cell[(int)DialogColumn.cg] = emptyChar;
             for (int j = 0; j <= (int)DialogColumn.cg; j++)
             {
@@ -285,11 +286,11 @@ public class DialogTree
                 if (cell[(int)DialogColumn.next] == "END")
                 {
                     tree.Add(new DialogNode(int.Parse(cell[(int)DialogColumn.ID]), DialogType.End, cell[(int)DialogColumn.text], cell[(int)DialogColumn.name],
-                        cell[(int)DialogColumn.pic], cell[(int)DialogColumn.potrait], cell[(int)DialogColumn.cg], cell[(int)DialogColumn.scene], cell[(int)DialogColumn.backup], cell[(int)DialogColumn.music], cell[(int)DialogColumn.sound]));
+                        cell[(int)DialogColumn.pic], cell[(int)DialogColumn.potrait], cell[(int)DialogColumn.cg], cell[(int)DialogColumn.scene], cell[(int)DialogColumn.command], cell[(int)DialogColumn.commandParameter], cell[(int)DialogColumn.music], cell[(int)DialogColumn.sound]));
                     continue;
                 }
                 tree.Add(new DialogNode(int.Parse(cell[(int)DialogColumn.ID]), DialogType.Normal, cell[(int)DialogColumn.text], cell[(int)DialogColumn.name],
-                    cell[(int)DialogColumn.pic], cell[(int)DialogColumn.potrait], cell[(int)DialogColumn.cg], cell[(int)DialogColumn.scene], cell[(int)DialogColumn.backup], cell[(int)DialogColumn.music], cell[(int)DialogColumn.sound]));
+                    cell[(int)DialogColumn.pic], cell[(int)DialogColumn.potrait], cell[(int)DialogColumn.cg], cell[(int)DialogColumn.scene], cell[(int)DialogColumn.command], cell[(int)DialogColumn.commandParameter], cell[(int)DialogColumn.music], cell[(int)DialogColumn.sound]));
 
                 if (cell[(int)DialogColumn.next] != "")
                 {
@@ -339,7 +340,7 @@ public class DialogTree
                 }
 
                 tree.Add(new DialogNode(int.Parse(cell[(int)DialogColumn.ID]), DialogType.Choice, cell[(int)DialogColumn.text], cell[(int)DialogColumn.name],
-                    cell[(int)DialogColumn.pic], cell[(int)DialogColumn.potrait], cell[(int)DialogColumn.cg], cell[(int)DialogColumn.scene], cell[(int)DialogColumn.backup], cell[(int)DialogColumn.music], cell[(int)DialogColumn.sound]));
+                    cell[(int)DialogColumn.pic], cell[(int)DialogColumn.potrait], cell[(int)DialogColumn.cg], cell[(int)DialogColumn.scene], cell[(int)DialogColumn.command], cell[(int)DialogColumn.commandParameter], cell[(int)DialogColumn.music], cell[(int)DialogColumn.sound]));
                 Debug.Log(dialogRows[i]);
                 tree.Last().AddLink(new DialogLink(int.Parse(cell[(int)DialogColumn.next]) - 1, DiaLinkType.Normal, ""));
                 //for(int j = tree[fathercache].links.Count - 1; j >= 0 ; j--)

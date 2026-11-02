@@ -10,12 +10,12 @@ public class ST_BlackScreen : SmallTalkElements, IMoveNextPreventer
 
     protected override void OnMoveNext(DialogNode node)
     {
-        Debug.Log($"[ST_BlackScreen] OnMoveNext: node.note = {node.note}");
+        Debug.Log($"[ST_BlackScreen] OnMoveNext: node.command = {node.command}");
         
         bool hasBlackTransition = false;
-        if (!string.IsNullOrEmpty(node.note))
+        if (!string.IsNullOrEmpty(node.command))
         {
-            foreach (var VARIABLE in node.note.Split('+'))
+            foreach (var VARIABLE in node.command.Split('+'))
             {
                 Debug.Log($"[ST_BlackScreen] 检查节点: {VARIABLE}");
                 if (VARIABLE == "黑屏转场")

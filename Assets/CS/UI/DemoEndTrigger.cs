@@ -2,7 +2,7 @@ using UnityEngine;
 
 /// <summary>
 /// Demo 剧情完成标记器
-/// 通过对话索引识别是哪段剧情结束，不占用 CSV 备注列。
+/// 通过对话索引识别是哪段剧情结束，不占用 CSV 指令列。
 /// 挂到场景中任意 GameObject 上即可，不需要加入 DialogList.hosts。
 /// </summary>
 public class DemoEndTrigger : MonoBehaviour

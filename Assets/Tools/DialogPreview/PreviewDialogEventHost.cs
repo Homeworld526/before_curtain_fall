@@ -4,6 +4,6 @@ public class PreviewDialogEventHost : DialogEventHost
 {
     protected override void DialogEndEvent(string param)
     {
-        Debug.Log($"[DialogPreview] 对话结束，note={param}");
+        Debug.Log($"[DialogPreview] 对话结束，command={param}");
     }
 }

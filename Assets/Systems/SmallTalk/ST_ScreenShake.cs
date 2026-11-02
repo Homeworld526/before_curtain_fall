@@ -14,7 +14,7 @@ public class ST_ScreenShake : SmallTalkElements
 
     protected override void OnMoveNext(DialogNode node)
     {
-        foreach (var VARIABLE in node.note.Split('+'))
+        foreach (var VARIABLE in node.command.Split('+'))
         {
             if (VARIABLE == "屏幕抖动")
             {

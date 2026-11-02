@@ -12,9 +12,9 @@ public class EffectTracker : ContentTracker
     
     protected override void TrackContent(DialogNode xx)
     {
-        if (type == DialogColumn.backup)
+        if (type == DialogColumn.command)
         {
-            string[] x = xx.note.Split('+');
+            string[] x = xx.command.Split('+');
             for (int i = 0; i < x.Length; i++)
             {
                 //Debug.Log(x[i]);

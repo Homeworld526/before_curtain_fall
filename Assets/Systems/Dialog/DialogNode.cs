@@ -46,7 +46,8 @@ public class DialogNode
     public string illustration_opponent;
     public string cg;
     public string scene;
-    public string note;
+    public string command;
+    public string[] commandParameters;
     public string music;
     public string sfx;
 
@@ -62,7 +63,7 @@ public class DialogNode
 
 
 
-    public DialogNode(int index, DialogType type, string content, string logger_name, string illustration, string illustration_opponent, string cg, string scene, string note, string music, string sfx)
+    public DialogNode(int index, DialogType type, string content, string logger_name, string illustration, string illustration_opponent, string cg, string scene, string command, string commandParameter, string music, string sfx)
     {
         this.index = index;
         this.type = type;
@@ -77,7 +78,8 @@ public class DialogNode
         StatChanger = new List<string>();
         ChangerVal = new List<int>();
         this.scene = scene;
-        this.note = note;
+        this.command = command;
+        commandParameters = commandParameter.Split('|');
         this.music = music;
         this.sfx = sfx;
     }

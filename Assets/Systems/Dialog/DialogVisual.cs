@@ -25,7 +25,7 @@ public class DialogVisual : SingleCase<DialogVisual>
 
     private static bool ShouldAutoTransition(DialogNode dialog)
     {
-        return IsAutoTransitionCommand(dialog.cg) || IsAutoTransitionCommand(dialog.note);
+        return IsAutoTransitionCommand(dialog.cg) || IsAutoTransitionCommand(dialog.command);
     }
 
     [SerializeField] private Ending ending;
@@ -512,9 +512,10 @@ public class DialogVisual : SingleCase<DialogVisual>
     {
         bool hasPortrait = dialog.illustration_opponent != "空" && dialog.illustration_opponent != "";
         bool hasHead = dialog.illustration != "空" && dialog.illustration != "";
-        foreach (string token in dialog.note.Split('+'))
+        string[] commands = dialog.command.Split('+');
+        for (int commandIndex = 0; commandIndex < commands.Length; commandIndex++)
         {
-            string command = token.Trim();
+            string command = commands[commandIndex].Trim();
             Image target;
             switch (command)
             {
@@ -528,6 +529,7 @@ public class DialogVisual : SingleCase<DialogVisual>
                     target = hasPortrait && PicRAlt != null ? PicR : null;
                     break;
                 case "头像框抖动":
+                case "头像抖动":
                     target = hasHead ? Head : null;
                     break;
                 default:
@@ -539,7 +541,20 @@ public class DialogVisual : SingleCase<DialogVisual>
                 Debug.LogWarning($"[DialogVisual] {command} 没有对应的显示对象，请检查本行头像、立绘及双立绘配置 (dialog ID {dialog.index})", this);
                 continue;
             }
-            _shakeEffect.Shake(target.rectTransform);
+            if (DialogCommands.TryGetCommandParameter(dialog, commandIndex, out string parameter))
+            {
+                if (!DialogCommands.TryParseNonNegativeFloat(parameter, out float duration))
+                {
+                    Debug.LogError($"[DialogVisual] {command} 的参数“{parameter}”必须是大于或等于 0 的秒数 (dialog ID {dialog.index})", this);
+                    continue;
+                }
+
+                _shakeEffect.Shake(target.rectTransform, duration);
+            }
+            else
+            {
+                _shakeEffect.Shake(target.rectTransform);
+            }
         }
     }
 
@@ -786,7 +801,7 @@ private IEnumerator UpdateOpponentPicAsync(DialogNode tmp, bool instant = false)
 
         bool spriteChanged = scenePic != null && Background.sprite != null && scenePic.name != Background.sprite.name;
 
-        if (tmp.note.Contains("场景弹窗"))
+        if (tmp.command.Contains("场景弹窗"))
         {
             bgSwaper?.PicChange(scenePic, 0.5f);
         }
@@ -794,7 +809,7 @@ private IEnumerator UpdateOpponentPicAsync(DialogNode tmp, bool instant = false)
         {
             if (instantTransition)
                 bgSwaper?.PicChange(scenePic, 0f);
-            else if (tmp.note.Contains(DialogNoteCommands.ScreenWipeTransition))
+            else if (tmp.command.Contains(DialogCommands.ScreenWipeTransition))
                 bgSwaper?.PicChangeWGradiant(scenePic);
             else
                 bgSwaper?.PicChange(scenePic);
@@ -1059,8 +1074,25 @@ private IEnumerator UpdateOpponentPicAsync(DialogNode tmp, bool instant = false)
         if (_picProcessCor != null) { StopCoroutine(_picProcessCor); _picProcessCor = null; }
         _picProcessCor = StartCoroutine(PicProcessAsync());
 
-        if (currentType == DialogType.Normal && DialogNoteCommands.HasAutoPlayCommand(tmp.note))
-            _autoPlayRoutine = StartCoroutine(AutoPlayAfterDelay(tmp.index));
+        if (currentType == DialogType.Normal && DialogCommands.HasAutoPlayCommand(tmp.command))
+        {
+            float delay = autoPlayDelaySeconds;
+            if (DialogCommands.TryGetCommandParameter(tmp, DialogCommands.AutoPlay, out string parameter))
+            {
+                if (!DialogCommands.TryParseNonNegativeFloat(parameter, out delay))
+                {
+                    Debug.LogError($"[DialogVisual] 自动播放的参数“{parameter}”必须是大于或等于 0 的秒数 (dialog ID {tmp.index})", this);
+                }
+                else
+                {
+                    _autoPlayRoutine = StartCoroutine(AutoPlayAfterDelay(tmp.index, delay));
+                }
+            }
+            else
+            {
+                _autoPlayRoutine = StartCoroutine(AutoPlayAfterDelay(tmp.index, delay));
+            }
+        }
 
         foreach (var ins in GameObject.FindObjectsOfType<ScrollviewAdder>())
         {
@@ -1084,7 +1116,7 @@ private IEnumerator UpdateOpponentPicAsync(DialogNode tmp, bool instant = false)
         }
         choiceList.Clear();
         List<DialogNode> nodes = tree.ShowChoices();
-        int positionIndex = nodes[0].note == "中" ? 1 : 0;
+        int positionIndex = nodes[0].command == "中" ? 1 : 0;
         bool waitChoice = true;
         for (int i = 0; i < nodes.Count; i++)
         {
@@ -1194,10 +1226,10 @@ private IEnumerator UpdateOpponentPicAsync(DialogNode tmp, bool instant = false)
         // Preview completion returns to the editor without invoking gameplay events.
         if (IsPreviewMode)
         {
-            string note = tree.ShowDialog().note;
+            string command = tree.ShowDialog().command;
             string fileName = previewFileName;
             StopPreview();
-            PreviewEnded?.Invoke(string.IsNullOrEmpty(note) ? fileName : note);
+            PreviewEnded?.Invoke(string.IsNullOrEmpty(command) ? fileName : command);
             return;
         }
 
@@ -1212,7 +1244,7 @@ private IEnumerator UpdateOpponentPicAsync(DialogNode tmp, bool instant = false)
         }
         var x = GameObject.FindObjectOfType<DiaPlayer>();
         if (x != null) x.enabled = true;
-        DialogList.Instance.InvokeEndAct(tree.ShowDialog().note == "" ? dialogFile.name : tree.ShowDialog().note);
+        DialogList.Instance.InvokeEndAct(tree.ShowDialog().command == "" ? dialogFile.name : tree.ShowDialog().command);
     }
 
     /// <summary>
@@ -1232,10 +1264,10 @@ private IEnumerator UpdateOpponentPicAsync(DialogNode tmp, bool instant = false)
         AutoProcceed();
     }
 
-    private IEnumerator AutoPlayAfterDelay(int dialogIndex)
+    private IEnumerator AutoPlayAfterDelay(int dialogIndex, float delay)
     {
         _autoPlayBlocksInput = true;
-        yield return new WaitForSeconds(autoPlayDelaySeconds);
+        yield return new WaitForSeconds(delay);
 
         // Skip and choice flows may have moved on while this line was waiting.
         if (tree.ShowDialog().index != dialogIndex)
