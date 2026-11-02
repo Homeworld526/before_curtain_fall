@@ -291,6 +291,9 @@ public class DialogList : SingleCase<DialogList>
     {
         CurrentIndex = 0;
         SuppressAutoDialog = false;
-        Debug.Log("[DialogList] 静态状态已重置: CurrentIndex=0, SuppressAutoDialog=false");
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        GmDebugMenu.ReapplyPendingDialogSuppression();
+#endif
+        Debug.Log($"[DialogList] 静态状态已重置: CurrentIndex=0, SuppressAutoDialog={SuppressAutoDialog}");
     }
 }

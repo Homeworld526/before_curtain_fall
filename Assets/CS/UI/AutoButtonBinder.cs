@@ -55,6 +55,10 @@ public class AutoButtonBinder : MonoBehaviour
         {
             StartCoroutine(FadeInButtonsCoroutine());
         }
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        GmDebugMenu.Create(transform as RectTransform, this);
+#endif
     }
 
     void Update()
@@ -269,6 +273,17 @@ public class AutoButtonBinder : MonoBehaviour
         SceneCenter.Instance.ChangeScene(startGameScene);
         history?.ClearHistory();
     }
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+    /// <summary>
+    /// 开发构建专用：以新游戏状态进入主场景，并在场景初始化后完成序章。
+    /// </summary>
+    internal void StartGameAfterPrologueForDebug()
+    {
+        GmDebugMenu.RequestPrologueSkip(startGameScene);
+        OnStartGame();
+    }
+#endif
 
     void OnSetting() => Debug.Log("⚙️ 打开设置");
     void OnGallery()

@@ -46,6 +46,7 @@ public class DialogVisual : SingleCase<DialogVisual>
 
     private void OnDisable()
     {
+        ResetAutoPlay();
         CG.sprite = LoadSprite(DialogCGResources.GetPath("黑屏"));
         diaName.text = "";
         text.text = "";
@@ -351,6 +352,9 @@ public class DialogVisual : SingleCase<DialogVisual>
     public List<Button> choiceList = new List<Button>();
 
     public bool ForceNoClickSkip = false;
+    [SerializeField, Min(0f)] private float autoPlayDelaySeconds = 1f;
+    private Coroutine _autoPlayRoutine;
+    private bool _autoPlayBlocksInput;
     public ReadDialogHistorySO ReadDialogHistory;
     //public DialogList.DialogAction endAction;
 
@@ -376,6 +380,7 @@ public class DialogVisual : SingleCase<DialogVisual>
     {
         _shakeEffect.ResetEffect();
         StopAllCoroutines();
+        ResetAutoPlay();
         skipRoutine = null;
         LoadRoutine = null;
         TextPrintCor = null;
@@ -400,6 +405,7 @@ public class DialogVisual : SingleCase<DialogVisual>
     {
         _shakeEffect.ResetEffect();
         StopAllCoroutines();
+        ResetAutoPlay();
         _autoTransitionProcessedIndex = -1;
         _endingDialog = false;
         Loaading = true;
@@ -788,10 +794,10 @@ private IEnumerator UpdateOpponentPicAsync(DialogNode tmp, bool instant = false)
         {
             if (instantTransition)
                 bgSwaper?.PicChange(scenePic, 0f);
-            else if (tmp.note.Contains("无刷屏转场"))
-                bgSwaper?.PicChange(scenePic);
-            else
+            else if (tmp.note.Contains(DialogNoteCommands.ScreenWipeTransition))
                 bgSwaper?.PicChangeWGradiant(scenePic);
+            else
+                bgSwaper?.PicChange(scenePic);
         }
 
         if (scene.StartsWith("场景") && scenePic != null)
@@ -1031,6 +1037,7 @@ private IEnumerator UpdateOpponentPicAsync(DialogNode tmp, bool instant = false)
     {
 
         DialogNode tmp = tree.ShowDialog();
+        ResetAutoPlay();
         if (tmp.type == DialogType.End && tmp.content == "") { return; }
         _shakeEffect.ResetEffect();
         MarkLastLineAsRead();
@@ -1051,6 +1058,9 @@ private IEnumerator UpdateOpponentPicAsync(DialogNode tmp, bool instant = false)
         
         if (_picProcessCor != null) { StopCoroutine(_picProcessCor); _picProcessCor = null; }
         _picProcessCor = StartCoroutine(PicProcessAsync());
+
+        if (currentType == DialogType.Normal && DialogNoteCommands.HasAutoPlayCommand(tmp.note))
+            _autoPlayRoutine = StartCoroutine(AutoPlayAfterDelay(tmp.index));
 
         foreach (var ins in GameObject.FindObjectsOfType<ScrollviewAdder>())
         {
@@ -1178,6 +1188,7 @@ private IEnumerator UpdateOpponentPicAsync(DialogNode tmp, bool instant = false)
         if (previewOnly && !IsPreviewMode) return;
         if (_endingDialog) return;
         _endingDialog = true;
+        ResetAutoPlay();
 
         MarkLastLineAsRead();
         // Preview completion returns to the editor without invoking gameplay events.
@@ -1220,6 +1231,33 @@ private IEnumerator UpdateOpponentPicAsync(DialogNode tmp, bool instant = false)
         }
         AutoProcceed();
     }
+
+    private IEnumerator AutoPlayAfterDelay(int dialogIndex)
+    {
+        _autoPlayBlocksInput = true;
+        yield return new WaitForSeconds(autoPlayDelaySeconds);
+
+        // Skip and choice flows may have moved on while this line was waiting.
+        if (tree.ShowDialog().index != dialogIndex)
+        {
+            _autoPlayBlocksInput = false;
+            _autoPlayRoutine = null;
+            yield break;
+        }
+
+        _autoPlayBlocksInput = false;
+        _autoPlayRoutine = null;
+        AutoProcceed();
+    }
+
+    private void ResetAutoPlay()
+    {
+        if (_autoPlayRoutine != null)
+            StopCoroutine(_autoPlayRoutine);
+
+        _autoPlayRoutine = null;
+        _autoPlayBlocksInput = false;
+    }
     
     /// <summary>
     /// 供 HotKeyManager onPressed 绑定：等价于鼠标左键点击前进，含跳过打印逻辑。
@@ -1232,7 +1270,7 @@ private IEnumerator UpdateOpponentPicAsync(DialogNode tmp, bool instant = false)
         if (IsSkip) return;
         if (IsHistory) return;
         if (IsAuto) return;
-        if (ForceNoClickSkip) return;
+        if (ForceNoClickSkip || _autoPlayBlocksInput) return;
         if (!monitoringMouse) return;
         if (clickDelay > 0) { clickDelay--; return; }
         if (IsPause) return;
@@ -1478,7 +1516,7 @@ private IEnumerator UpdateOpponentPicAsync(DialogNode tmp, bool instant = false)
         }
         if (IsHistory) { return false; }
         if (IsAuto) return false;
-        if (ForceNoClickSkip) return false;
+        if (ForceNoClickSkip || _autoPlayBlocksInput) return false;
         if (!monitoringMouse) return false;
         if (!Input.GetKeyUp(KeyCode.Mouse0)) return false;
         if (clickDelay > 0) { clickDelay--; return false; }
@@ -1542,6 +1580,7 @@ private IEnumerator UpdateOpponentPicAsync(DialogNode tmp, bool instant = false)
         _soundProcessCor = null;
         _autoTransitionProcessedIndex = -1;
         _autoTransitionScenes.Clear();
+        ResetAutoPlay();
         monitoringMouse = false;
         skipLoading = false;
         IsSkip = false;
