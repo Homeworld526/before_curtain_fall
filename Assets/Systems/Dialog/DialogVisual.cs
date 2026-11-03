@@ -510,6 +510,9 @@ public class DialogVisual : SingleCase<DialogVisual>
 
     private void PlayVisualShakes(DialogNode dialog)
     {
+        const float defaultShakeDuration = 0.5f;
+        const float portraitShakeIntensityScale = 1f;
+        const float headShakeIntensityScale = 0.5f;
         bool hasPortrait = dialog.illustration_opponent != "空" && dialog.illustration_opponent != "";
         bool hasHead = dialog.illustration != "空" && dialog.illustration != "";
         string[] commands = dialog.command.Split('+');
@@ -517,20 +520,25 @@ public class DialogVisual : SingleCase<DialogVisual>
         {
             string command = commands[commandIndex].Trim();
             Image target;
+            float defaultIntensityScale;
             switch (command)
             {
                 case "正立绘抖动":
                     target = hasPortrait ? PicR : null;
+                    defaultIntensityScale = portraitShakeIntensityScale;
                     break;
                 case "左立绘抖动":
                     target = hasPortrait ? PicRAlt : null;
+                    defaultIntensityScale = portraitShakeIntensityScale;
                     break;
                 case "右立绘抖动":
                     target = hasPortrait && PicRAlt != null ? PicR : null;
+                    defaultIntensityScale = portraitShakeIntensityScale;
                     break;
                 case "头像框抖动":
                 case "头像抖动":
                     target = hasHead ? Head : null;
+                    defaultIntensityScale = headShakeIntensityScale;
                     break;
                 default:
                     continue;
@@ -543,17 +551,17 @@ public class DialogVisual : SingleCase<DialogVisual>
             }
             if (DialogCommands.TryGetCommandParameter(dialog, commandIndex, out string parameter))
             {
-                if (!DialogCommands.TryParseNonNegativeFloat(parameter, out float duration))
+                if (!DialogCommands.TryParseShakeParameter(parameter, defaultShakeDuration, defaultIntensityScale, out float duration, out float intensityScale))
                 {
-                    Debug.LogError($"[DialogVisual] {command} 的参数“{parameter}”必须是大于或等于 0 的秒数 (dialog ID {dialog.index})", this);
+                    Debug.LogError($"[DialogVisual] {command} 的参数“{parameter}”必须是“持续秒数,强度系数”，且两项均为大于或等于 0 的数字 (dialog ID {dialog.index})", this);
                     continue;
                 }
 
-                _shakeEffect.Shake(target.rectTransform, duration);
+                _shakeEffect.Shake(target.rectTransform, duration, intensityScale);
             }
             else
             {
-                _shakeEffect.Shake(target.rectTransform);
+                _shakeEffect.Shake(target.rectTransform, defaultShakeDuration, defaultIntensityScale);
             }
         }
     }

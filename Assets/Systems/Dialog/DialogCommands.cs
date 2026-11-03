@@ -23,13 +23,14 @@ public static class DialogCommands
         "自动播放\n" +
         "进入本行时屏蔽点击；参数填写等待秒数，未填写时默认等待 1 秒。\n\n" +
         "头像框抖动/头像抖动、正立绘抖动、左立绘抖动、右立绘抖动\n" +
-        "参数填写抖动持续秒数，未填写时默认 0.5 秒。\n\n" +
+        "参数填写“持续秒数,强度系数”，例如 1.5,2 表示抖动 1.5 秒且强度为基准的 2 倍。时长未填写时默认 0.5 秒；强度未填写时立绘默认为 1、头像默认为 0.5。\n\n" +
         "刷屏转场\n" +
         "场景切换默认使用无刷屏转场；仅本行指令包含该指令时使用刷屏转场。\n\n" +
         "示例\n" +
         "第 20 行指令：蒙版渐入\n" +
         "第 24 行指令：蒙版渐出\n" +
         "第 28 行指令：自动播放；指令参数：1\n" +
+        "第 30 行指令：头像抖动；指令参数：1.5,0.75\n" +
         "第 32 行指令：刷屏转场\n" +
         "组合示例：指令填蒙版渐入+自动播放，指令参数填|1";
 
@@ -83,6 +84,31 @@ public static class DialogCommands
     public static bool TryParseNonNegativeFloat(string parameter, out float value)
     {
         return float.TryParse(parameter, NumberStyles.Float, CultureInfo.InvariantCulture, out value) && value >= 0f;
+    }
+
+    public static bool TryParseShakeParameter(
+        string parameter,
+        float defaultDuration,
+        float defaultIntensityScale,
+        out float duration,
+        out float intensityScale)
+    {
+        string[] values = parameter.Split(',');
+        if (values.Length > 2)
+        {
+            duration = 0f;
+            intensityScale = 0f;
+            return false;
+        }
+
+        duration = defaultDuration;
+        intensityScale = defaultIntensityScale;
+        if (values[0].Length > 0 && !TryParseNonNegativeFloat(values[0], out duration))
+            return false;
+
+        return values.Length == 1
+            || values[1].Length == 0
+            || TryParseNonNegativeFloat(values[1], out intensityScale);
     }
 
     public static bool LooksLikeAutoPlayCommand(string token)

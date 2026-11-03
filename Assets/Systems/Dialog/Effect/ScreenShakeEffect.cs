@@ -35,6 +35,11 @@ public class ScreenShakeEffect : MonoBehaviour, IEffect
 
     public void Shake(RectTransform target, float duration)
     {
+        Shake(target, duration, 1f);
+    }
+
+    public void Shake(RectTransform target, float duration, float intensityScale)
+    {
         if (_shakes.TryGetValue(target, out ShakeState previous))
         {
             StopCoroutine(previous.Routine);
@@ -43,10 +48,10 @@ public class ScreenShakeEffect : MonoBehaviour, IEffect
 
         var state = new ShakeState { Origin = target.anchoredPosition };
         _shakes[target] = state;
-        state.Routine = StartCoroutine(ShakeRoutine(target, state, duration));
+        state.Routine = StartCoroutine(ShakeRoutine(target, state, duration, intensityScale));
     }
 
-    private IEnumerator ShakeRoutine(RectTransform target, ShakeState state, float duration)
+    private IEnumerator ShakeRoutine(RectTransform target, ShakeState state, float duration, float intensityScale)
     {
         float elapsed = 0f;
 
@@ -57,7 +62,7 @@ public class ScreenShakeEffect : MonoBehaviour, IEffect
             if (!_paused)
             {
                 float progress = elapsed / duration;
-                float dampedIntensity = intensity * (1f - progress);
+                float dampedIntensity = intensity * intensityScale * (1f - progress);
                 target.anchoredPosition = state.Origin + Random.insideUnitCircle * dampedIntensity;
                 elapsed += Time.deltaTime;
             }

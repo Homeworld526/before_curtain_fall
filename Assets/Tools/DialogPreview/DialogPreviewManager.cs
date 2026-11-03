@@ -665,18 +665,25 @@ public class DialogPreviewManager : MonoBehaviour
 
         for (int i = 0; i < commands.Length && i < parameters.Length; i++)
         {
-            if (parameters[i].Length == 0 || !IsTimedCommand(commands[i]))
+            if (parameters[i].Length == 0)
                 continue;
 
-            if (!DialogCommands.TryParseNonNegativeFloat(parameters[i], out _))
+            if (IsShakeCommand(commands[i]))
+            {
+                if (!DialogCommands.TryParseShakeParameter(parameters[i], 0.5f, 1f, out _, out _))
+                    result.Errors.Add($"第 {lineNumber} 行的“{commands[i]}”参数“{parameters[i]}”必须是“持续秒数,强度系数”，且两项均为大于或等于 0 的数字。");
+
+                continue;
+            }
+
+            if (commands[i] == DialogCommands.AutoPlay && !DialogCommands.TryParseNonNegativeFloat(parameters[i], out _))
                 result.Errors.Add($"第 {lineNumber} 行的“{commands[i]}”参数“{parameters[i]}”必须是大于或等于 0 的秒数。");
         }
     }
 
-    private static bool IsTimedCommand(string command)
+    private static bool IsShakeCommand(string command)
     {
-        return command == DialogCommands.AutoPlay
-            || command == "头像框抖动"
+        return command == "头像框抖动"
             || command == "头像抖动"
             || command == "正立绘抖动"
             || command == "左立绘抖动"
