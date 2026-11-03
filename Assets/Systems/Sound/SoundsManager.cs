@@ -212,7 +212,7 @@ public class SoundsManager : SingleCase<SoundsManager>
     /// <summary>
     /// 设置背景音乐文件路径（Resources 文件夹下的相对路径，不含扩展名）
     /// </summary>
-    /// <param name="path">如 "Music/BGM"，会自动尝试加载 .mp3/.wav/.ogg 等格式</param>
+    /// <param name="path">如 "Audio/Music/BGM"，会自动尝试加载 .mp3/.wav/.ogg 等格式</param>
     public void SetMusicFile(string path)
     {
         // 如果设置的是相同的音乐文件路径，不重复设置

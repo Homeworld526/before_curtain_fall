@@ -1419,7 +1419,7 @@ public class SaveSystem : SingleCase<SaveSystem>
         {
             if (JobManager.Instance._allJobs.TryGetValue(jobData.jobId, out JobData job))
             {
-                job.currentLevel = jobData.currentLevel;
+                job.currentLevel = RestoreJobLevel(job, jobData.currentLevel);
                 job.exp = jobData.exp;
                 job.curcd = jobData.curcd;
                 job.hasClickedCue = jobData.hasClickedCue;
@@ -1431,7 +1431,7 @@ public class SaveSystem : SingleCase<SaveSystem>
         {
             if (JobManager.Instance._allcharJobs.TryGetValue(jobData.jobId, out JobData job))
             {
-                job.currentLevel = jobData.currentLevel;
+                job.currentLevel = RestoreJobLevel(job, jobData.currentLevel);
                 job.exp = jobData.exp;
                 job.curcd = jobData.curcd;
                 job.hasClickedCue = jobData.hasClickedCue;
@@ -1530,6 +1530,18 @@ public class SaveSystem : SingleCase<SaveSystem>
         JobManager.Instance.UpdateSwitchButCueState();
 
         Debug.Log($"[SaveSystem] 应用了 {currentSaveData.NormalJobsData?.Count ?? 0} 个普通打工数据, {currentSaveData.CharacterJobsData?.Count ?? 0} 个角色打工数据, {currentSaveData.ActiveJobSlots?.Count ?? 0} 个活动槽位");
+    }
+
+    private static int RestoreJobLevel(JobData job, int savedLevel)
+    {
+        int maxLevel = job.rewards.Length - 1;
+        int repairedLevel = Mathf.Clamp(savedLevel, 0, maxLevel);
+        if (repairedLevel != savedLevel)
+        {
+            Debug.LogWarning($"[SaveSystem] 打工 {job.name} 的存档等级 {savedLevel} 超出报酬等级范围 0-{maxLevel}，已修复为 {repairedLevel}。");
+        }
+
+        return repairedLevel;
     }
 
     /// <summary>

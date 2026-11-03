@@ -1519,7 +1519,7 @@ MonoBehaviour:
   totalApUsed: 0
   totalChar: 0
   uiRoot: {fileID: 870355353}
-  workBgmPath: "Music/\u6253\u5DE5BGM"
+  workBgmPath: "Audio/Music/\u6253\u5DE5BGM"
   currentLuck: 0
   skipSmallTalkBtn: {fileID: 1899963423}
   typingSpeed: 0.1

@@ -136,7 +136,7 @@ public static class DialogSerializer
             sceneData.musicPath = !string.IsNullOrEmpty(SoundsManager.Instance.CurrentMusicPath)
                 ? SoundsManager.Instance.CurrentMusicPath
                 : (!string.IsNullOrEmpty(SoundsManager.Instance.CurrentMusicClipName)
-                    ? "Music/" + SoundsManager.Instance.CurrentMusicClipName
+                    ? "Audio/Music/" + SoundsManager.Instance.CurrentMusicClipName
                     : "");
             sceneData.musicPlaying = SoundsManager.Instance.IsMusicPlaying;
         }

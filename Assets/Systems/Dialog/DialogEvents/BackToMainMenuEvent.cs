@@ -44,7 +44,7 @@ public class BackToMainMenuEvent : DialogEventHost
             }
             FindObjectOfType<ShowDialog>().Hide2();
             //Player?.SetActive(false);
-            SoundsManager.Instance.PlayMusic("小平房间循环曲");
+            SoundsManager.Instance.PlayMusic("Audio/Music/小平房间循环曲");
             // 教学只在序章第一次结束时弹出（后续角色剧情结束不再弹）
             if (PrologueUIManager.Instance != null && !PrologueUIManager.IsPrologueCompleted)
             {

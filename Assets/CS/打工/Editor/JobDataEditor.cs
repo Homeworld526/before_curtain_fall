@@ -26,13 +26,13 @@ public class JobDataEditor : EditorWindow
         
         if (GUILayout.Button("打开 NormalJobs.csv"))
         {
-            string path = "Assets/Resources/Configs/NormalJobs.csv";
+            string path = "Assets/Resources/SchemaTable/Configs/NormalJobs.csv";
             UnityEditorInternal.InternalEditorUtility.OpenFileAtLineExternal(path, 1);
         }
         
         if (GUILayout.Button("打开 CharacterJobs.csv"))
         {
-            string path = "Assets/Resources/Configs/CharacterJobs.csv";
+            string path = "Assets/Resources/SchemaTable/Configs/CharacterJobs.csv";
             UnityEditorInternal.InternalEditorUtility.OpenFileAtLineExternal(path, 1);
         }
         

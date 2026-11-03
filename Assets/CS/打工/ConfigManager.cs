@@ -5,6 +5,9 @@ using GameSystem;
 
 public class ConfigManager : MonoBehaviour
 {
+    private const string NormalJobsResourcePath = "SchemaTable/Configs/NormalJobs";
+    private const string CharacterJobsResourcePath = "SchemaTable/Configs/CharacterJobs";
+
     public static ConfigManager Instance { get; private set; }
 
     public List<JobData> normalJobs = new List<JobData>();
@@ -33,10 +36,10 @@ public class ConfigManager : MonoBehaviour
         normalJobs.Clear();
         characterJobs.Clear();
         
-        LoadCsv("Configs/NormalJobs", normalJobs, false);
+        LoadCsv(NormalJobsResourcePath, normalJobs, false);
         Debug.Log($"普通工作加载完成: {normalJobs.Count}个");
         
-        LoadCsv("Configs/CharacterJobs", characterJobs, true);
+        LoadCsv(CharacterJobsResourcePath, characterJobs, true);
         Debug.Log($"角色工作加载完成: {characterJobs.Count}个");
         
         Debug.Log($"配置加载完成: 普通工作{normalJobs.Count}个, 角色工作{characterJobs.Count}个");

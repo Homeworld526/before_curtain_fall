@@ -64,16 +64,17 @@ public sealed class GmDebugMenu : MonoBehaviour
         yield return null;
         yield return null;
 
-        if (DialogLocator.Instance == null || DialogLocator.Instance.Dialog == null ||
-            ShowDialog.Instance == null || PrologueUIManager.Instance == null || TutorialManager.Instance == null)
+        var prologueEndEvent = FindObjectOfType<BackToMainMenuEvent>();
+        if (prologueEndEvent == null || ShowDialog.Instance == null ||
+            PrologueUIManager.Instance == null || TutorialManager.Instance == null)
         {
-            throw new InvalidOperationException("[GM] 无法跳过序章：SampleScene 缺少对话、主 UI、序章或教学管理器配置。");
+            throw new InvalidOperationException("[GM] 无法跳过序章：SampleScene 缺少序章收尾事件、主 UI、序章或教学管理器配置。");
         }
 
-        DialogLocator.Instance.Dialog.SetActive(false);
-        PrologueUIManager.Instance.CompletePrologue();
+        // 复用剧情正常结束时的收尾链路：它会切换至 home 背景并恢复主场景状态。
+        prologueEndEvent.SkipPrologue();
+        // GM 没有实际播放序章末句，补齐 ShowDialog 依赖的完成标记。
         ShowDialog.Instance.SetPrologueCompleted();
-        ShowDialog.Instance.Hide2();
         DialogList.SuppressAutoDialog = false;
         _prologueSkipPending = false;
         _prologueSkipTargetScene = null;

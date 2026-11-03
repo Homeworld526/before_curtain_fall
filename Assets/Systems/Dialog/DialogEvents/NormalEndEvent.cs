@@ -65,7 +65,7 @@ public class NormalEndEvent : DialogEventHost
             Debug.LogWarning("endend");
             //GetComponent<ShowDialog>().Hide(); 
             JobManager.Instance.AdvanceOneDayAndSetEmpty();
-            SoundsManager.Instance.PlayMusic("小平房间循环曲");
+            SoundsManager.Instance.PlayMusic("Audio/Music/小平房间循环曲");
         }
     }
 

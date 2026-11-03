@@ -86,7 +86,7 @@ public class JobManager : MonoBehaviour
     public Transform uiRoot;
     
     [Header("BGM配置")]
-    public string workBgmPath = "Music/打工BGM";
+    public string workBgmPath = "Audio/Music/打工BGM";
     
     private readonly Dictionary<string, GameObject> _uiCache = new Dictionary<string, GameObject>();
     #endregion
@@ -1301,7 +1301,7 @@ public class JobManager : MonoBehaviour
         if (SoundsManager.Instance != null)
         {
             SoundsManager.Instance.FadeOutMusic();
-            SoundsManager.Instance.PlayMusic("小平房间循环曲");
+            SoundsManager.Instance.PlayMusic("Audio/Music/小平房间循环曲");
             _hasSavedPreviousBgm = false;
         }
     }
@@ -2317,7 +2317,8 @@ public class JobManager : MonoBehaviour
     #region 打工升级与报酬
     void LevelUp(JobData job)
     {
-        if (job.currentLevel < 3)
+        int maxLevel = job.rewards.Length - 1;
+        if (job.currentLevel < maxLevel)
         {
             job.currentLevel++;
             levelUpJobs.Add(job.name);
