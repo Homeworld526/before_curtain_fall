@@ -19,6 +19,8 @@ public class Ending : MonoBehaviour, IEffect
     {
         if (param == "开始")
         {
+            // ContentTracker 在场景图片异步切换前触发，先使用当前背景避免结局层首帧显示旧的黑图。
+            SyncBackground(DialogVisual.Instance.Background.sprite);
             ending.gameObject.SetActive(true);
             EndIcon.SetActive(false);
             StartCoroutine(FadeInEnding());
@@ -36,6 +38,17 @@ public class Ending : MonoBehaviour, IEffect
         {
             endingScroll.preClear = true;
         }
+    }
+
+    /// <summary>
+    /// 结局阅读层使用独立的模糊背景 Image，需要与剧情背景保持同一张图。
+    /// </summary>
+    public void SyncBackground(Sprite sprite)
+    {
+        if (sprite == null) return;
+
+        backGround.sprite = sprite;
+        backGround.color = Color.white;
     }
 
     /// <summary>

@@ -821,6 +821,9 @@ private IEnumerator UpdateOpponentPicAsync(DialogNode tmp, bool instant = false)
                 bgSwaper?.PicChangeWGradiant(scenePic);
             else
                 bgSwaper?.PicChange(scenePic);
+
+            if (ending.IsRunning())
+                ending.SyncBackground(scenePic);
         }
 
         if (scene.StartsWith("场景") && scenePic != null)
@@ -841,6 +844,9 @@ private IEnumerator UpdateOpponentPicAsync(DialogNode tmp, bool instant = false)
         // 黑幕期间直接落到目标图，结束背景自身正在运行的旧切图动画，避免旧动画在黑幕后覆盖目标图。
         Background.GetComponent<PicSwaper>().PicShowImmediate();
         Background.sprite = scenePic;
+
+        if (ending.IsRunning())
+            ending.SyncBackground(scenePic);
 
         if (sceneDialog.scene.StartsWith("场景") && scenePic != null)
             StatEventCenter.Instance.PicRead(scenePic.name);
