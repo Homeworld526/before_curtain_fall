@@ -8,6 +8,8 @@ using UnityEngine.EventSystems;
 
 public class JobManager : MonoBehaviour
 {
+    private const string WorkCgResourceDirectory = "CG/WorkCG";
+
     #region 单例
     public static JobManager Instance { get; private set; }
     #endregion
@@ -491,7 +493,7 @@ public class JobManager : MonoBehaviour
     {
         for (int i = 0; i < 3; i++)
         {
-            string path = $"workIcon/进度条小人{i + 1}";
+            string path = $"UI/WorkIcon/进度条小人{i + 1}";
             playerSprites[i] = Resources.Load<Sprite>(path);
             if (playerSprites[i] == null)
             {
@@ -1517,7 +1519,7 @@ public class JobManager : MonoBehaviour
 
                 // 统一使用运势索引（CG和心得）
                 randomIndex = cgInfo.randomIndex > 0 ? cgInfo.randomIndex : GetLuckIndex();
-                string cgPath = $"CG/打工cg-{cgInfo.imageName}-{randomIndex}";
+                string cgPath = $"{WorkCgResourceDirectory}/打工cg-{cgInfo.imageName}-{randomIndex}";
                 s = Resources.Load<Sprite>(cgPath);
 
                 if (s == null) continue;
@@ -1831,12 +1833,12 @@ public class JobManager : MonoBehaviour
         
         if (isCharJob)
         {
-            cgPath = $"CG/小剧场-{imageName}-{randomIndex}";
+            cgPath = $"CG/TheaterCG/小剧场-{imageName}-{randomIndex}";
             sprite = Resources.Load<Sprite>(cgPath);
         }
         else
         {
-            cgPath = $"CG/打工cg-{imageName}-{randomIndex}";
+            cgPath = $"{WorkCgResourceDirectory}/打工cg-{imageName}-{randomIndex}";
             sprite = Resources.Load<Sprite>(cgPath);
         }
 
@@ -1863,7 +1865,7 @@ public class JobManager : MonoBehaviour
                     if (!string.IsNullOrEmpty(characterName))
                     {
                         // 角色打工：设置Head头像
-                        string headPath = $"WorkIcon/打工cg-{characterName}";
+                        string headPath = $"UI/WorkIcon/打工cg-{characterName}";
                         Sprite headSprite = Resources.Load<Sprite>(headPath);
                         Debug.Log($"[JobManager] 加载角色头像: {headPath}, 结果: {(headSprite != null ? "成功" : "失败")}");
                         item.SetCharacterHead(headSprite);
@@ -2219,8 +2221,8 @@ public class JobManager : MonoBehaviour
 
         _smallSpriteDict = new Dictionary<string, Sprite>();
 
-        Sprite[] leftSprites = Resources.LoadAll<Sprite>("WorkIcon/WorkLabel_view_atlas");
-        Sprite[] rightSprites = Resources.LoadAll<Sprite>("WorkIcon/WorkHead_view_atlas");
+        Sprite[] leftSprites = Resources.LoadAll<Sprite>("UI/WorkIcon/WorkLabel_view_atlas");
+        Sprite[] rightSprites = Resources.LoadAll<Sprite>("UI/WorkIcon/WorkHead_view_atlas");
 
         foreach (var sprite in leftSprites)
         {
@@ -2388,7 +2390,7 @@ public class JobManager : MonoBehaviour
                 if (jobDetailConditionBg != null)
                 {
                     int lineCount = conditionText.Split('\n').Length;
-                    string bgPath = $"WorkIcon/打工条件-{GetChineseNumber(lineCount)}行";
+                    string bgPath = $"UI/WorkIcon/打工条件-{GetChineseNumber(lineCount)}行";
                     Sprite bgSprite = Resources.Load<Sprite>(bgPath);
                     if (bgSprite != null)
                     {
@@ -2419,7 +2421,7 @@ public class JobManager : MonoBehaviour
             string imageIndex = job.ischar && !string.IsNullOrEmpty(job.npcName) ? job.npcName : job.imageName;
             if (!string.IsNullOrEmpty(imageIndex))
             {
-                Sprite sprite = Resources.Load<Sprite>("WorkIcon/打工名片-" + imageIndex);
+                Sprite sprite = Resources.Load<Sprite>("UI/WorkIcon/打工名片-" + imageIndex);
                 if (sprite != null)
                 {
                     jobDetailImage.sprite = sprite;

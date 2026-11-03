@@ -27,9 +27,7 @@ public class LoadGalleryElement : MonoBehaviour
         }
 
         string mainFile = CGUnlockSystem.Instance.GetFile(ind);
-        string resourceName = CGUnlockSystem.IsVideo(mainFile)
-            ? mainFile.Substring("VIDEO_".Length)
-            : mainFile;
+        string resourceName = CGUnlockSystem.GetResourcePath(mainFile);
         if (Resources.Load(resourceName) == null)
         {
             UnInit(mainFile);
@@ -53,7 +51,7 @@ public class LoadGalleryElement : MonoBehaviour
         }
         else
         {
-            Init(mainFile, Resources.Load<Sprite>(mainFile));
+            Init(mainFile, Resources.Load<Sprite>(resourceName));
         }
     }
 

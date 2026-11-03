@@ -49,7 +49,7 @@ public class CharacterJobListItem : MonoBehaviour, IPointerEnterHandler
         if (_spriteDict == null)
         {
             _spriteDict = new Dictionary<string, Sprite>();
-            Sprite[] allSprites = Resources.LoadAll<Sprite>("WorkIcon/workUI_view_atlas");
+            Sprite[] allSprites = Resources.LoadAll<Sprite>("UI/WorkIcon/workUI_view_atlas");
             foreach (var sprite in allSprites)
             {
                 if (!_spriteDict.ContainsKey(sprite.name))
@@ -227,7 +227,7 @@ public class CharacterJobListItem : MonoBehaviour, IPointerEnterHandler
         // 加载好感度图片
         if (!string.IsNullOrEmpty(job.name))
         {
-            Sprite iconSprite = Resources.Load<Sprite>("WorkIcon/" + job.name);
+            Sprite iconSprite = Resources.Load<Sprite>("UI/WorkIcon/" + job.name);
             if (iconSprite != null)
             {
                 icon.sprite = iconSprite;
@@ -274,7 +274,7 @@ public class CharacterJobListItem : MonoBehaviour, IPointerEnterHandler
         if (_spriteDict.Count > 0)
             return;
 
-        Sprite[] allSprites = Resources.LoadAll<Sprite>("WorkIcon/workUI_view_atlas");
+        Sprite[] allSprites = Resources.LoadAll<Sprite>("UI/WorkIcon/workUI_view_atlas");
         foreach (var sprite in allSprites)
         {
             if (!_spriteDict.ContainsKey(sprite.name))

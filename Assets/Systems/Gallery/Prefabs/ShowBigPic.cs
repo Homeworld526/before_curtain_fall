@@ -28,7 +28,7 @@ public class ShowBigPic : SingleCase<ShowBigPic>
             videoPlayer.Stop();
             videoDisplay.gameObject.SetActive(false);
             image.gameObject.SetActive(true);
-            image.sprite = Resources.Load<Sprite>(name);
+            image.sprite = Resources.Load<Sprite>(CGUnlockSystem.GetResourcePath(name));
             if (name == "黑屏") Quit.SetActive(false);
             Element.gameObject.SetActive(true);
         }
@@ -47,7 +47,7 @@ public class ShowBigPic : SingleCase<ShowBigPic>
             videoPlayer.Stop();
             videoDisplay.gameObject.SetActive(false);
             image.gameObject.SetActive(true);
-            image.sprite = Resources.Load<Sprite>(name);
+            image.sprite = Resources.Load<Sprite>(CGUnlockSystem.GetResourcePath(name));
             if (name == "黑屏") Quit.SetActive(false);
             Element.gameObject.SetActive(true);
         }
@@ -55,11 +55,11 @@ public class ShowBigPic : SingleCase<ShowBigPic>
 
     private IEnumerator ShowVideoRoutine(string name)
     {
-        string clipName = name.Substring("VIDEO_".Length);
-        var clip = Resources.Load<VideoClip>(clipName);
+        string resourcePath = CGUnlockSystem.GetResourcePath(name);
+        var clip = Resources.Load<VideoClip>(resourcePath);
         if (clip == null)
         {
-            Debug.LogWarning($"[ShowBigPic] VideoClip 未找到: {clipName}");
+            Debug.LogWarning($"[ShowBigPic] VideoClip 未找到: {resourcePath}");
             yield break;
         }
 
@@ -76,7 +76,7 @@ public class ShowBigPic : SingleCase<ShowBigPic>
             string prevFile = CGUnlockSystem.Instance.GetFile(_currentIndex, _currentVariant - 1);
             if (!string.IsNullOrEmpty(prevFile) && !CGUnlockSystem.IsVideo(prevFile))
             {
-                image.sprite = Resources.Load<Sprite>(prevFile);
+                image.sprite = Resources.Load<Sprite>(CGUnlockSystem.GetResourcePath(prevFile));
                 image.gameObject.SetActive(true);
             }
             else
@@ -103,7 +103,7 @@ public class ShowBigPic : SingleCase<ShowBigPic>
         int next = _currentVariant + 1;
         if (next >= CGUnlockSystem.Instance.filename[_currentIndex].Count) { Hide(); return; }
         string file = CGUnlockSystem.Instance.GetFile(_currentIndex, next);
-        string resourceName = CGUnlockSystem.IsVideo(file) ? file.Substring("VIDEO_".Length) : file;
+        string resourceName = CGUnlockSystem.GetResourcePath(file);
         if (!string.IsNullOrEmpty(file) && Resources.Load(resourceName) != null)
             Show(file, _currentIndex, next);
     }
@@ -113,7 +113,7 @@ public class ShowBigPic : SingleCase<ShowBigPic>
         if (_currentIndex < 0 || _currentVariant <= 0) return;
         int prev = _currentVariant - 1;
         string file = CGUnlockSystem.Instance.GetFile(_currentIndex, prev);
-        string resourceName = CGUnlockSystem.IsVideo(file) ? file.Substring("VIDEO_".Length) : file;
+        string resourceName = CGUnlockSystem.GetResourcePath(file);
         if (!string.IsNullOrEmpty(file) && Resources.Load(resourceName) != null)
             Show(file, _currentIndex, prev);
     }

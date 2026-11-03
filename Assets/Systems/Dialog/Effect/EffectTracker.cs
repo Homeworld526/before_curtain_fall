@@ -54,7 +54,7 @@ public class EffectTracker : ContentTracker
         if(type == DialogColumn.music)
         {
             string x = xx.music;
-            var clip = Resources.Load<AudioClip>(x);
+            var clip = Resources.Load<AudioClip>("Audio/Music/" + x);
             if (clip != null) SoundsManager.Instance.SetMusicFile(clip);
 
         }

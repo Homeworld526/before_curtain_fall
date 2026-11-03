@@ -28,7 +28,7 @@ public class Ending : MonoBehaviour, IEffect
         {
             ending.gameObject.SetActive(false);
             EndIcon.SetActive(true);
-            backGround.sprite = Resources.Load<Sprite>("黑屏");
+            backGround.sprite = Resources.Load<Sprite>("UI/黑屏");
             backGround.color = new Color(1f, 1f, 1f, 1f);
             DialogVisual.Instance.enableFill = false;
         }

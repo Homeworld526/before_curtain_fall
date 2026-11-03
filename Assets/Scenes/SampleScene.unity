@@ -1565,7 +1565,7 @@ MonoBehaviour:
     unlockKey: "\u5F20\u6D77\u5FC3\u5267\u60C5\u89E3\u9501"
     description: "\u9501\u5F20\u6D77\u5FC3\u89D2\u8272\u6253\u5DE5\u548C\u9152\u5427\u6253\u5DE5"
     hasTriggered: 1
-  charKeyConfigPath: Configs/CharKey
+  charKeyConfigPath: SchemaTable/Configs/CharKey
   characterKeywordConfigs: []
 --- !u!1 &90388076
 GameObject:
@@ -19798,7 +19798,7 @@ MonoBehaviour:
   backgroundImage: {fileID: 0}
   backgroundVideoPlayer: {fileID: 0}
   closeButton: {fileID: 0}
-  charIconPath: CharIcon/
+  charIconPath: UI/CharIcon/
 --- !u!1 &1540789964
 GameObject:
   m_ObjectHideFlags: 0

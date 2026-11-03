@@ -81,7 +81,11 @@ public class AutoRunVideoEffect : MonoBehaviour, IEffect
             time -= Time.deltaTime;
             yield return null;
         }
-        swaper?.PicChange(Resources.Load<Sprite>(_videoSource.clip.name + "-静态"));
+        string clipName = _videoSource.clip.name;
+        string staticCgName = clipName.EndsWith("-动态")
+            ? clipName.Substring(0, clipName.Length - "-动态".Length)
+            : clipName + "-静态";
+        swaper?.PicChange(Resources.Load<Sprite>(DialogCGResources.GetPath(staticCgName)));
         DialogVisual.Instance.monitoringMouse = true;
     }
 }

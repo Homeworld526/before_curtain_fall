@@ -21,11 +21,11 @@ Keyword Unlocks 列表配置：
 
 三、CSV 配置
 ------------------
-1. 普通打工配置 (Assets/Resources/Configs/NormalJobs.csv)：
+1. 普通打工配置 (Assets/Resources/SchemaTable/Configs/NormalJobs.csv)：
    - 第16列：unlockDialogKeyword（剧情解锁关键词）
    - 已配置：酒保 → 张海心剧情解锁
 
-2. 角色打工配置 (Assets/Resources/Configs/CharacterJobs.csv)：
+2. 角色打工配置 (Assets/Resources/SchemaTable/Configs/CharacterJobs.csv)：
    - 第19列：unlockDialogKeyword（剧情解锁关键词）
    - 已配置：帮张海心填词 → 张海心剧情解锁
 

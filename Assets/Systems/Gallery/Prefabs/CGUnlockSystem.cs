@@ -104,13 +104,26 @@ public class CGUnlockSystem : SingleCase<CGUnlockSystem>
 
     public static bool IsVideo(string name) => name.StartsWith("VIDEO_");
 
+    public static string GetResourcePath(string fileName)
+    {
+        string resourceName = IsVideo(fileName)
+            ? fileName.Substring("VIDEO_".Length)
+            : fileName;
+
+        if (resourceName.IndexOf('/') >= 0) return resourceName;
+        if (resourceName.StartsWith("场景") || resourceName.StartsWith("对话背景"))
+            return DialogVisual.GetScenePic(resourceName);
+
+        return DialogCGResources.GetPath(resourceName);
+    }
+
     public Sprite FindCoverSprite(int index)
     {
         foreach (string v in filename[index])
         {
             if (!IsVideo(v))
             {
-                var s = Resources.Load<Sprite>(v);
+                var s = Resources.Load<Sprite>(GetResourcePath(v));
                 if (s != null) return s;
             }
         }

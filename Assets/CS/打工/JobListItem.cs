@@ -130,7 +130,7 @@ public class JobListItem : MonoBehaviour, IPointerEnterHandler, IPointerExitHand
         jobName.text = job.name;
        // jobDescription.text = "消耗：" + job.apCost.ToString() + "AP";
         jobPrice.text = "报酬：$<color=#912710>" + job.rewards[job.currentLevel]+ "</color>";
-        //icon.sprite = Resources.Load<Sprite>("WorkIcon/" + job.imageName);
+        //icon.sprite = Resources.Load<Sprite>("UI/WorkIcon/" + job.imageName);
         JobLevelText.text = GetJobLevelName(job.currentLevel);
         
         if (Order != null)

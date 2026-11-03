@@ -11,18 +11,27 @@ public class ST_CG : SmallTalkElements
 
     protected override void OnMoveNext(DialogNode node)
     {
-        if(Resources.Load<Sprite>(node.cg)!=null)
+        if (node.cg == "空")
+        {
+            swaper.PicHide();
+            return;
+        }
+
+        string cgPath = DialogCGResources.GetPath(node.cg);
+        if (cgPath == null)
+        {
+            return;
+        }
+
+        Sprite cgSprite = Resources.Load<Sprite>(cgPath);
+        if (cgSprite != null)
         {
             if (cgGroup.alpha < 1f)
             {
                 CanvasGroupFader.FadeTo(cgGroup, 1f, 0.5f);
             }
             if(GetComponent<Image>().color.a < 1f){swaper.PicShow();}
-            swaper.PicChange(Resources.Load<Sprite>(node.cg));
-        }
-        else if (node.cg == "空")
-        {
-            swaper.PicHide();
+            swaper.PicChange(cgSprite);
         }
     }
 }

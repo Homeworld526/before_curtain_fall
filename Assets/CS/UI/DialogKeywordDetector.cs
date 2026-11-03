@@ -30,7 +30,7 @@ public class DialogKeywordDetector : MonoBehaviour
     public KeywordUnlock[] keywordUnlocks;
 
     [Header("角色关键词配置文件路径")]
-    public string charKeyConfigPath = "Configs/CharKey";
+    public string charKeyConfigPath = "SchemaTable/Configs/CharKey";
 
     [Header("角色关键词配置列表（自动加载）")]
     public List<CharacterKeywordConfig> characterKeywordConfigs = new List<CharacterKeywordConfig>();

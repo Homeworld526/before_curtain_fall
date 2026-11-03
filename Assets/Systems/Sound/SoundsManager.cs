@@ -44,7 +44,7 @@ public class SoundsManager : SingleCase<SoundsManager>
 
     [Header("UI 音效配置")]
     [SerializeField] private AudioClip _clickSfxClip;
-    [SerializeField] private string _clickSfxPath = "SFX/关按键";
+    [SerializeField] private string _clickSfxPath = "Audio/SFX/关按键";
 
     [SerializeField] private AudioClip _confirmSfxClip;
     [SerializeField] private string _confirmSfxPath = "";
@@ -507,7 +507,7 @@ public class SoundsManager : SingleCase<SoundsManager>
     /// <summary>
     /// 设置音效文件路径（Resources 文件夹下的相对路径，不含扩展名）
     /// </summary>
-    /// <param name="path">如 "SFX/Click"，会自动尝试加载 .mp3/.wav/.ogg 等格式</param>
+    /// <param name="path">如 "Audio/SFX/Click"，会自动尝试加载 .mp3/.wav/.ogg 等格式</param>
     public void SetSfxFile(string path)
     {
         _currentSfxPath = path;

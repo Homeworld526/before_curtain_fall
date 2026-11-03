@@ -60,7 +60,9 @@ public class LocalizationManager : SingleCase<LocalizationManager>
     private void LoadUITexts(GameLanguage lang)
     {
         _uiTexts.Clear();
-        string filename = lang == GameLanguage.Chinese ? "Localization/ui_text_zh" : "Localization/ui_text_en";
+        string filename = lang == GameLanguage.Chinese
+            ? "SchemaTable/Localization/ui_text_zh"
+            : "SchemaTable/Localization/ui_text_en";
         var asset = Resources.Load<TextAsset>(filename);
         if (asset == null)
         {

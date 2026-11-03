@@ -301,7 +301,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _maxSfxSources: 5
   _clickSfxClip: {fileID: 0}
-  _clickSfxPath: "SFX/\u5173\u6309\u952E"
+  _clickSfxPath: "Audio/SFX/\u5173\u6309\u952E"
   _confirmSfxClip: {fileID: 0}
   _confirmSfxPath: 
   _mapExpandSfxClip: {fileID: 0}

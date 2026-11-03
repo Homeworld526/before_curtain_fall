@@ -21,7 +21,7 @@ public class JobLogItem : MonoBehaviour
 
         if (_allSprites == null)
         {
-            _allSprites = Resources.LoadAll<Sprite>("WorkIcon/workUI_view_atlas");
+            _allSprites = Resources.LoadAll<Sprite>("UI/WorkIcon/workUI_view_atlas");
         }
     }
 
@@ -64,7 +64,7 @@ public class JobLogItem : MonoBehaviour
                 // 确保 _allSprites 已加载
                 if (_allSprites == null)
                 {
-                    _allSprites = Resources.LoadAll<Sprite>("WorkIcon/workUI_view_atlas");
+                    _allSprites = Resources.LoadAll<Sprite>("UI/WorkIcon/workUI_view_atlas");
                 }
 
                 Sprite sprite = null;

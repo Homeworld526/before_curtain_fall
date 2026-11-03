@@ -84,7 +84,7 @@ public class CharacterDecorationManager : MonoBehaviour
 
     [Header("资源路径配置")]
     [Tooltip("角色详情图片路径（Resources下）")]
-    public string charIconPath = "CharIcon/";
+    public string charIconPath = "UI/CharIcon/";
 
     private Dictionary<string, CharacterDecorationConfig> _configMap = new Dictionary<string, CharacterDecorationConfig>();
     private Transform _characterUIRoot;
