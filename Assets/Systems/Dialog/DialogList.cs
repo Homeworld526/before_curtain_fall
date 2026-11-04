@@ -37,6 +37,13 @@ public class DialogList : SingleCase<DialogList>
         public void StartSmallTalk(string name, System.Action onFinish)
         {
             int index = GetDialogNum(name);
+            if (index < 0)
+            {
+                Debug.LogError($"[DialogList] 未找到小剧场表：{name}");
+                onFinish?.Invoke();
+                return;
+            }
+
             StartSmallTalk(index, onFinish);
         }
 
@@ -56,7 +63,24 @@ public class DialogList : SingleCase<DialogList>
             if (dialogs[i].name == name)
                 return i;
         }
-        return 0;
+
+            string prefix = name + "-";
+            int matchedIndex = -1;
+            for (int i = 0; i < dialogs.Count; i++)
+            {
+                if (!dialogs[i].name.StartsWith(prefix, System.StringComparison.Ordinal))
+                    continue;
+
+                if (matchedIndex >= 0)
+                {
+                    Debug.LogError($"[DialogList] 小剧场名称“{name}”匹配到多张表：{dialogs[matchedIndex].name}、{dialogs[i].name}");
+                    return -1;
+                }
+
+                matchedIndex = i;
+            }
+
+            return matchedIndex;
     }
     
     public void ReloadGame(int index)
