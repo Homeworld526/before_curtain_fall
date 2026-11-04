@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -36,6 +37,15 @@ public class SoundsManager : SingleCase<SoundsManager>
     /// 当前背景音乐文件路径
     /// </summary>
     private string _currentMusicPath;
+
+    // Keep a small working set alive so Resources.UnloadUnusedAssets does not evict
+    // music that has already been prepared for the next transition.
+    private const int MaxCachedMusicClips = 3;
+    private readonly Dictionary<string, AudioClip> _musicClipCache = new Dictionary<string, AudioClip>();
+    private readonly Dictionary<string, Coroutine> _musicPreloadCoroutines = new Dictionary<string, Coroutine>();
+    private readonly List<string> _musicCacheOrder = new List<string>();
+    private Coroutine _pendingMusicPlayCoroutine;
+    private string _pendingMusicPlayPath;
 
     /// <summary>
     /// 当前音效文件路径
@@ -215,13 +225,24 @@ public class SoundsManager : SingleCase<SoundsManager>
     /// <param name="path">如 "Audio/Music/BGM"，会自动尝试加载 .mp3/.wav/.ogg 等格式</param>
     public void SetMusicFile(string path)
     {
-        // 如果设置的是相同的音乐文件路径，不重复设置
-        if (!string.IsNullOrEmpty(path) && path == _currentMusicPath)
+        path = NormalizeMusicPath(path);
+
+        if (string.IsNullOrEmpty(path))
         {
-            //Debug.Log($"[SoundsManager] 音乐文件路径相同，不重复设置: {path}");
+            _currentMusicPath = null;
             return;
         }
+
         _currentMusicPath = path;
+
+        if (TryGetPreloadedMusic(path, out AudioClip clip))
+        {
+            SetMusicFile(clip);
+            return;
+        }
+
+        PreloadMusic(path);
+        StartCoroutine(SetMusicFileWhenReady(path));
     }
 
     public void ClearMusicClip()
@@ -257,14 +278,33 @@ public class SoundsManager : SingleCase<SoundsManager>
     /// <param name="path">可选：音乐文件路径。如果未提前设置，需传入此参数</param>
     public void PlayMusic(string path = null)
     {
-        string musicPath = path ?? _currentMusicPath;
+        string musicPath = NormalizeMusicPath(path ?? _currentMusicPath);
         if (string.IsNullOrEmpty(musicPath))
         {
             Debug.LogWarning("[SoundsManager] 未设置音乐文件路径");
             return;
         }
 
-        LoadAndPlayMusic(musicPath);
+        if (TryGetPreloadedMusic(musicPath, out AudioClip clip))
+        {
+            PlayPreloadedMusic(musicPath, clip);
+            return;
+        }
+
+        PreloadMusic(musicPath);
+
+        if (_pendingMusicPlayCoroutine != null && _pendingMusicPlayPath == musicPath)
+        {
+            return;
+        }
+
+        if (_pendingMusicPlayCoroutine != null)
+        {
+            StopCoroutine(_pendingMusicPlayCoroutine);
+        }
+
+        _pendingMusicPlayPath = musicPath;
+        _pendingMusicPlayCoroutine = StartCoroutine(PlayMusicWhenReady(musicPath));
     }
 
     /// <summary>
@@ -327,38 +367,17 @@ public class SoundsManager : SingleCase<SoundsManager>
         }
     }
 
-    private void LoadAndPlayMusic(string path)
+    private void PlayPreloadedMusic(string path, AudioClip clip)
     {
-        // 如果加载的是相同的音乐文件，不打断播放
-        if (!string.IsNullOrEmpty(_currentMusicPath) && _currentMusicPath == path && _musicSource.isPlaying)
+        if (_musicSource.clip == clip && _musicSource.isPlaying)
         {
-            //Debug.Log($"[SoundsManager] 音乐文件相同，不打断播放: {path}");
+            _currentMusicPath = path;
             return;
         }
 
-        // 停止正在进行的淡入淡出协程
-        StopAllFadeCoroutines();
-
-        // 如果正在播放，先停止
-        if (_musicSource.isPlaying)
-        {
-            _musicSource.Stop();
-        }
-
-        // 从 Resources 加载音频
-        AudioClip clip = LoadAudioClip(path);
-        if (clip != null)
-        {
-            _musicSource.clip = clip;
-            _musicSource.Play();
-            // 设置当前音乐路径（修复：之前遗漏了这一步）
-            _currentMusicPath = path;
-            Debug.Log($"[SoundsManager] 成功播放音乐: {path}");
-        }
-        else
-        {
-            Debug.LogError($"[SoundsManager] 音乐加载失败：{path}");
-        }
+        LoadAndPlayMusic(clip);
+        _currentMusicPath = path;
+        Debug.Log($"[SoundsManager] 成功播放已预加载音乐: {path}");
     }
 
     /// <summary>
@@ -893,6 +912,172 @@ public class SoundsManager : SingleCase<SoundsManager>
     #endregion
 
     #region 辅助方法
+
+    /// <summary>
+    /// 异步预加载 Resources 中的音乐。完成后会保留一个强引用，直到被缓存淘汰。
+    /// </summary>
+    public void PreloadMusic(string path)
+    {
+        path = NormalizeMusicPath(path);
+        if (string.IsNullOrEmpty(path))
+        {
+            return;
+        }
+
+        if (_musicClipCache.ContainsKey(path))
+        {
+            TouchMusicCache(path);
+            return;
+        }
+
+        if (_musicPreloadCoroutines.ContainsKey(path))
+        {
+            return;
+        }
+
+        _musicPreloadCoroutines[path] = StartCoroutine(PreloadMusicCoroutine(path));
+    }
+
+    /// <summary>
+    /// 获取已经完成数据加载的音乐。调用方不应在失败时同步加载作为回退。
+    /// </summary>
+    public bool TryGetPreloadedMusic(string path, out AudioClip clip)
+    {
+        path = NormalizeMusicPath(path);
+        if (_musicClipCache.TryGetValue(path, out clip))
+        {
+            TouchMusicCache(path);
+            return true;
+        }
+
+        clip = null;
+        return false;
+    }
+
+    /// <summary>
+    /// 等待指定音乐预加载完成。失败时记录错误并结束，调用方可用 TryGetPreloadedMusic 判断结果。
+    /// </summary>
+    public IEnumerator WaitForMusic(string path)
+    {
+        path = NormalizeMusicPath(path);
+        PreloadMusic(path);
+
+        while (_musicPreloadCoroutines.ContainsKey(path))
+        {
+            yield return null;
+        }
+    }
+
+    private IEnumerator PreloadMusicCoroutine(string path)
+    {
+        ResourceRequest request = Resources.LoadAsync<AudioClip>(path);
+        yield return request;
+
+        AudioClip clip = request.asset as AudioClip;
+        if (clip == null)
+        {
+            Debug.LogError($"[SoundsManager] 音乐预加载失败：Resources/{path}");
+            _musicPreloadCoroutines.Remove(path);
+            yield break;
+        }
+
+        if (clip.loadState == AudioDataLoadState.Unloaded && !clip.LoadAudioData())
+        {
+            Debug.LogError($"[SoundsManager] 无法开始加载音乐数据：Resources/{path}");
+            _musicPreloadCoroutines.Remove(path);
+            yield break;
+        }
+
+        while (clip.loadState == AudioDataLoadState.Loading)
+        {
+            yield return null;
+        }
+
+        if (clip.loadState != AudioDataLoadState.Loaded)
+        {
+            Debug.LogError($"[SoundsManager] 音乐数据加载失败：Resources/{path}");
+            _musicPreloadCoroutines.Remove(path);
+            yield break;
+        }
+
+        CacheMusicClip(path, clip);
+        _musicPreloadCoroutines.Remove(path);
+    }
+
+    private IEnumerator PlayMusicWhenReady(string path)
+    {
+        yield return WaitForMusic(path);
+
+        if (_pendingMusicPlayPath == path && TryGetPreloadedMusic(path, out AudioClip clip))
+        {
+            _pendingMusicPlayCoroutine = null;
+            _pendingMusicPlayPath = null;
+            PlayPreloadedMusic(path, clip);
+            yield break;
+        }
+
+        if (_pendingMusicPlayPath == path)
+        {
+            _pendingMusicPlayCoroutine = null;
+            _pendingMusicPlayPath = null;
+        }
+    }
+
+    private IEnumerator SetMusicFileWhenReady(string path)
+    {
+        yield return WaitForMusic(path);
+
+        if (_currentMusicPath == path && TryGetPreloadedMusic(path, out AudioClip clip))
+        {
+            SetMusicFile(clip);
+        }
+    }
+
+    private void CacheMusicClip(string path, AudioClip clip)
+    {
+        _musicClipCache[path] = clip;
+        TouchMusicCache(path);
+
+        while (_musicCacheOrder.Count > MaxCachedMusicClips)
+        {
+            int staleIndex = _musicCacheOrder.FindLastIndex(candidate =>
+                _musicClipCache[candidate] != _musicSource.clip && candidate != _pendingMusicPlayPath);
+            if (staleIndex < 0)
+            {
+                break;
+            }
+
+            string stalePath = _musicCacheOrder[staleIndex];
+            _musicCacheOrder.RemoveAt(staleIndex);
+            _musicClipCache.Remove(stalePath);
+        }
+    }
+
+    private void TouchMusicCache(string path)
+    {
+        _musicCacheOrder.Remove(path);
+        _musicCacheOrder.Insert(0, path);
+    }
+
+    private static string NormalizeMusicPath(string path)
+    {
+        if (string.IsNullOrEmpty(path))
+        {
+            return path;
+        }
+
+        path = path.Replace('\\', '/');
+        string[] extensions = { ".mp3", ".wav", ".ogg", ".aiff" };
+        foreach (string extension in extensions)
+        {
+            if (path.EndsWith(extension, StringComparison.OrdinalIgnoreCase))
+            {
+                return path.Substring(0, path.Length - extension.Length);
+            }
+        }
+
+        return path;
+    }
 
     /// <summary>
     /// 停止所有正在进行的淡入淡出协程

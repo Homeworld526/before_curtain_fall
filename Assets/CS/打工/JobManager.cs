@@ -1052,6 +1052,13 @@ public class JobManager : MonoBehaviour
             }
         }
 
+        if (!string.IsNullOrEmpty(workBgmPath))
+        {
+            SoundsManager.Instance.PreloadMusic(workBgmPath);
+        }
+
+        SoundsManager.Instance.PreloadMusic("Audio/Music/小平房间循环曲");
+
         StartCoroutine(PlayCGAndPaySequence());
     }
 

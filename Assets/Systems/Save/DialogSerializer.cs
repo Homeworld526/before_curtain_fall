@@ -197,8 +197,7 @@ public static class DialogSerializer
                 SoundsManager.Instance.PlayMusic(sceneData.musicPath);
             else
             {
-                var clip = Resources.Load<AudioClip>(sceneData.musicPath);
-                if (clip != null) SoundsManager.Instance.SetMusicFile(clip);
+                SoundsManager.Instance.SetMusicFile(sceneData.musicPath);
                 SoundsManager.Instance.PauseMusic();
             }
         }

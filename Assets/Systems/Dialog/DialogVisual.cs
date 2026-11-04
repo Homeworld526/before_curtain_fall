@@ -438,24 +438,29 @@ public class DialogVisual : SingleCase<DialogVisual>
             return;
         }
 
-        string musicPath = "Audio/Music/" + tmp.music;
-        var clip = Resources.Load<AudioClip>(musicPath);
+        _soundProcessCor = StartCoroutine(SoundProcessAsync(tmp));
+    }
 
-        if (clip != null)
+    private IEnumerator SoundProcessAsync(DialogNode tmp)
+    {
+        string musicPath = "Audio/Music/" + tmp.music;
+        yield return SoundsManager.Instance.WaitForMusic(musicPath);
+
+        if (SoundsManager.Instance.TryGetPreloadedMusic(musicPath, out AudioClip clip))
         {
             if (SoundsManager.Instance.IsFadingIn)
             {
                 // 淡入中：只换 clip，保持淡入协程继续
-                SoundsManager.Instance.SetMusicFile(clip);
+                SoundsManager.Instance.SetMusicFile(musicPath);
             }
             else if (SoundsManager.Instance.IsFadingOut || SoundsManager.Instance.IsMusicFadedOut)
             {
                 // 淡出进行中或已完成：不重启，只预设 clip 供下次主动播放使用
-                SoundsManager.Instance.SetMusicFile(clip);
+                SoundsManager.Instance.SetMusicFile(musicPath);
             }
             else
             {
-                SoundsManager.Instance.PlayMusic(clip);
+                SoundsManager.Instance.PlayMusic(musicPath);
             }
             Loaading = false;
         }
@@ -1061,6 +1066,24 @@ private IEnumerator UpdateOpponentPicAsync(DialogNode tmp, bool instant = false)
         yield return new WaitForSeconds(time);
         act.Invoke();
     }
+
+    private void PreloadCurrentAndNextMusic(DialogNode currentDialog)
+    {
+        PreloadDialogMusic(currentDialog);
+
+        if (currentDialog.type != DialogType.End && currentDialog.links.Count > 0)
+        {
+            PreloadDialogMusic(tree.ShowNextDialog());
+        }
+    }
+
+    private void PreloadDialogMusic(DialogNode dialog)
+    {
+        if (dialog.music != "" && dialog.music != "空")
+        {
+            SoundsManager.Instance.PreloadMusic("Audio/Music/" + dialog.music);
+        }
+    }
     
     private void Visualize()
     {
@@ -1081,6 +1104,8 @@ private IEnumerator UpdateOpponentPicAsync(DialogNode tmp, bool instant = false)
         // ContentTracker 先触发（让 FadeInMusic 等 effect 先设置 IsFadingIn），
         // SoundProcess 再执行，才能正确走 SetMusicFile 而非 PlayMusic 分支
         if(ContentTracker != null) ContentTracker.Invoke(tmp);
+
+        PreloadCurrentAndNextMusic(tmp);
 
         if (_soundProcessCor != null) { StopCoroutine(_soundProcessCor); _soundProcessCor = null; }
         SoundProcess();
