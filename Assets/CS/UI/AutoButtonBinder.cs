@@ -268,6 +268,7 @@ public class AutoButtonBinder : MonoBehaviour
         ShowDialog.Instance?.ResetForNewGame();
         // 确保新游戏不会残留旧的对话加载抑制状态
         DialogList.SuppressAutoDialog = false;
+        BackboneSystem.BeginNewGame();
         SceneManager.sceneLoaded += SceneCenter.Instance.ClearAfterLoad;
         // 使用 SceneCenter 切换场景，确保静态状态被清理
         SceneCenter.Instance.ChangeScene(startGameScene);

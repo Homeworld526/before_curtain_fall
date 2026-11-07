@@ -19,6 +19,11 @@ public class DialogStatDataSO : ScriptableObject
         return _stats.TryGetValue(key, out int v) ? v : defaultValue;
     }
 
+    public bool TryGetInt(string key, out int value)
+    {
+        return _stats.TryGetValue(key, out value);
+    }
+
     public void SetInt(string key, int value)
     {
         _stats[key] = value;

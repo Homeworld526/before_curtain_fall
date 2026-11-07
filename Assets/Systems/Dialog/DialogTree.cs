@@ -30,6 +30,8 @@ public enum DialogColumn
     needName = 15,
     needValue = 16,
     music = 18,
+    requirementBehavior = 19,
+    lockedNext = 20,
 }
 
 public class DialogTree
@@ -37,6 +39,7 @@ public class DialogTree
 
     private static readonly UTF8Encoding StrictUtf8 = new UTF8Encoding(false, true);
     private static readonly Encoding Gbk = Encoding.GetEncoding(936);
+    private const int ColumnCount = (int)DialogColumn.lockedNext + 1;
 
     private DialogNode lastDia;
     private static string emptyChar = "空";
@@ -231,9 +234,43 @@ public class DialogTree
             return DialogType.End;
         }
 
-        currentIndex = tree[currentIndex].links[choice].targetIndex;
-        currentIndex = tree[currentIndex].links[0].targetIndex;
+        if (choice < 0 || choice >= tree[currentIndex].links.Count)
+            throw new ArgumentOutOfRangeException(nameof(choice), "选项索引超出当前对话选项范围。");
 
+        DialogNode selectedChoice = tree[tree[currentIndex].links[choice].targetIndex];
+        if (!selectedChoice.CheckAllRequireMents())
+            throw new InvalidOperationException($"剧情节点 {selectedChoice.index} 的条件不满足，不能进入该选项。");
+
+        if (selectedChoice.StatChanger.Count != 0)
+            selectedChoice.ChangeAllValues();
+
+        currentIndex = selectedChoice.links[0].targetIndex;
+
+        return tree[currentIndex].links.Count > 1 ? DialogType.Choice : DialogType.Normal;
+    }
+
+    public DialogType ProceedLockedChoice(int choice)
+    {
+        if (currentIndex == -1)
+        {
+            Debug.Log("Dialog Not Initialized!");
+            return DialogType.End;
+        }
+
+        if (choice < 0 || choice >= tree[currentIndex].links.Count)
+            throw new ArgumentOutOfRangeException(nameof(choice), "锁定选项索引超出当前对话选项范围。");
+
+        DialogNode lockedChoice = tree[tree[currentIndex].links[choice].targetIndex];
+        if (!lockedChoice.IsLockedByRequirements() || lockedChoice.lockedTargetIndex < 0)
+        {
+            throw new InvalidOperationException(
+                $"剧情节点 {lockedChoice.index} 不是带有效失败跳转的锁定选项。");
+        }
+
+        if (lockedChoice.lockedTargetIndex >= tree.Count)
+            throw new InvalidOperationException($"剧情节点 {lockedChoice.index} 的锁定跳转目标不存在。");
+
+        currentIndex = lockedChoice.lockedTargetIndex;
         return tree[currentIndex].links.Count > 1 ? DialogType.Choice : DialogType.Normal;
     }
 
@@ -243,7 +280,7 @@ public class DialogTree
         int firstchoice = -1;
         List<int> fathercache = new List<int>();
         dialogRows = txt.Split(new[] { "\r\n", "\n" }, System.StringSplitOptions.None);
-        string[] cell = dialogRows[1].Split(',');
+        string[] cell = NormalizeCells(dialogRows[1].Split(','));
         for (int i = 1; i < dialogRows.Length; i++)
         {
             // CSV 末尾常见的换行会产生空行；它不属于对话数据，直接结束读取。
@@ -251,7 +288,7 @@ public class DialogTree
 
             //Debug.Log(dialogRows[i]);
 
-            string[] newCell = dialogRows[i].Split(',');
+            string[] newCell = NormalizeCells(dialogRows[i].Split(','));
             //Debug.Log(dialogRows[i]);
             if (newCell.Length <= (int)DialogColumn.ID || newCell[(int)DialogColumn.ID] == "") break;
             // 转场只在配置行执行；其后的空白演出列应保持 CG 隐藏。
@@ -272,6 +309,10 @@ public class DialogTree
             if (newCell[(int)DialogColumn.music] != "")
             {
                 cell[(int)DialogColumn.music] = newCell[(int)DialogColumn.music];
+            }
+            for (int j = (int)DialogColumn.requirementBehavior; j <= (int)DialogColumn.lockedNext; j++)
+            {
+                cell[j] = newCell[j];
             }
             if (cell[(int)DialogColumn.name] == emptyChar) cell[(int)DialogColumn.name] = "";
             
@@ -358,6 +399,8 @@ public class DialogTree
                         tree.Last().AddMonitor(Changers[j], int.Parse(Vals[j]));
                     }
                 }
+
+                ConfigureRequirementBehavior(tree.Last(), cell);
             }
 
             if (cell[(int)DialogColumn.statName] != "")
@@ -372,5 +415,45 @@ public class DialogTree
             }
         }
         Debug.Log("readFinish");
+    }
+
+    private static string[] NormalizeCells(string[] source)
+    {
+        var cells = new string[ColumnCount];
+        Array.Copy(source, cells, Math.Min(source.Length, cells.Length));
+        for (int i = 0; i < cells.Length; i++)
+            cells[i] ??= string.Empty;
+        return cells;
+    }
+
+    private static void ConfigureRequirementBehavior(DialogNode node, string[] cells)
+    {
+        string behavior = cells[(int)DialogColumn.requirementBehavior].Trim();
+        string lockedNext = cells[(int)DialogColumn.lockedNext].Trim();
+
+        if (string.IsNullOrEmpty(behavior))
+        {
+            if (!string.IsNullOrEmpty(lockedNext))
+                throw new FormatException($"剧情节点 {node.index} 填写了锁定跳转，但未将条件表现设为“锁定”。");
+            return;
+        }
+
+        if (behavior != "锁定")
+        {
+            if (behavior == "隐藏")
+                return;
+            throw new FormatException($"剧情节点 {node.index} 的条件表现“{behavior}”无效；只支持“隐藏”或“锁定”。");
+        }
+
+        if (node.StatMonitor.Count == 0)
+            throw new FormatException($"剧情节点 {node.index} 使用锁定条件表现，但没有配置需求数值。");
+
+        if (!int.TryParse(lockedNext, out int targetId) || targetId <= 0)
+        {
+            throw new FormatException(
+                $"剧情节点 {node.index} 使用锁定条件表现时，锁定跳转必须是有效的正整数 ID。");
+        }
+
+        node.ConfigureLockedRequirement(targetId - 1);
     }
 }

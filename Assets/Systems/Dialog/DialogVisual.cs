@@ -1169,24 +1169,37 @@ private IEnumerator UpdateOpponentPicAsync(DialogNode tmp, bool instant = false)
             }
         }
         
+        if (waitChoice && skipLoading)
+        {
+            for (int i = 0; i < nodes.Count; i++)
+            {
+                if (!nodes[i].CheckAllRequireMents()) continue;
+                OnButtonClick(i);
+                yield break;
+            }
+
+            Debug.LogError("[DialogVisual] 自动跳过时没有可用选项；锁定选项不会被自动选择。");
+            yield break;
+        }
+
         if(waitChoice) for(int i = 0; i < nodes.Count; i++)
         {
-            if (skipLoading)
-            {
-                OnButtonClick(0);
-                i = nodes.Count;
-                continue;
-            }
-            if (!nodes[i].CheckAllRequireMents()) continue;
+            bool requirementsMet = nodes[i].CheckAllRequireMents();
+            if (!requirementsMet && nodes[i].requirementBehavior == ChoiceRequirementBehavior.Hide) continue;
             GameObject ins = Instantiate(choicePrefab, choiceGroup[positionIndex].transform);
             TextMeshProUGUI tx = ins.GetComponentInChildren<TextMeshProUGUI>();
             if (tx != null)
             {
                 tx.text = nodes[i].content;
+                if (!requirementsMet)
+                    tx.color = new Color(0.55f, 0.55f, 0.55f, tx.color.a);
             }
             int index = i;
             choiceList.Add(ins.GetComponent<Button>());
-            choiceList.Last().onClick.AddListener(() => OnButtonClick(index));
+            if (requirementsMet)
+                choiceList.Last().onClick.AddListener(() => OnButtonClick(index));
+            else
+                choiceList.Last().onClick.AddListener(() => OnLockedChoiceClick(index));
 
         }
     }
@@ -1201,6 +1214,25 @@ private IEnumerator UpdateOpponentPicAsync(DialogNode tmp, bool instant = false)
         else
         {
             //Visualize();
+            Visualize_Choice();
+        }
+        for (int i = 0; i < choiceList.Count; i++)
+        {
+            choiceList[i].onClick.RemoveAllListeners();
+            Destroy(choiceList[i].gameObject);
+        }
+        clickDelay++;
+    }
+
+    void OnLockedChoiceClick(int index)
+    {
+        currentType = tree.ProceedLockedChoice(index);
+        if (currentType != DialogType.Choice)
+        {
+            Visualize();
+        }
+        else
+        {
             Visualize_Choice();
         }
         for (int i = 0; i < choiceList.Count; i++)

@@ -104,6 +104,9 @@ public class DialogList : SingleCase<DialogList>
 
     public bool CheckMonitor(string name, int value)
     {
+        if (name.Trim() == BackboneSystem.StatKey)
+            return BackboneSystem.IsAtLeast(value);
+
         int val = statData != null ? statData.GetInt(name, -1) : PlayerPrefs.GetInt(name, -1);
         Debug.Log("获取数值" + name + ": " + val);
         Debug.Log("需求数值: " + value);
@@ -132,6 +135,7 @@ public class DialogList : SingleCase<DialogList>
     private void Start()
     {
         Resources.UnloadUnusedAssets();
+        BackboneSystem.EnsureInitializedForActiveScene();
         //visual = GetComponent<DialogVisual>();
         act.Clear();
         for(int i = 0; i < hosts.Count; i++)

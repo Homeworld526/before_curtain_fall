@@ -15,6 +15,12 @@ public enum DiaLinkType
     Normal,
 }
 
+public enum ChoiceRequirementBehavior
+{
+    Hide,
+    Locked,
+}
+
 public class DialogLink
 {
     public int targetIndex;
@@ -56,6 +62,9 @@ public class DialogNode
     public bool monitorIsAnd = true;
     public List<string> StatChanger;
     public List<int> ChangerVal;
+
+    public ChoiceRequirementBehavior requirementBehavior = ChoiceRequirementBehavior.Hide;
+    public int lockedTargetIndex = -1;
 
     public List<bool> ElementState; 
 
@@ -122,11 +131,29 @@ public class DialogNode
         return res;
     }
 
+    public bool IsLockedByRequirements()
+    {
+        return requirementBehavior == ChoiceRequirementBehavior.Locked && !CheckAllRequireMents();
+    }
+
+    public void ConfigureLockedRequirement(int targetIndex)
+    {
+        requirementBehavior = ChoiceRequirementBehavior.Locked;
+        lockedTargetIndex = targetIndex;
+    }
+
     public void ChangeAllValues()
     {
         for(int i = 0; i< StatChanger.Count; i++)
         {
-            DialogList.Instance.ChangeValue(StatChanger[i], ChangerVal[i]);
+            if (StatChanger[i].Trim() == BackboneSystem.StatKey)
+            {
+                BackboneSystem.Adjust(ChangerVal[i], $"剧情节点 {index}");
+            }
+            else
+            {
+                DialogList.Instance.ChangeValue(StatChanger[i], ChangerVal[i]);
+            }
         }
     }
 

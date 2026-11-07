@@ -47,7 +47,8 @@ public sealed class DialogPreviewValidationResult
 
 public class DialogPreviewManager : MonoBehaviour
 {
-    private const int RequiredColumnCount = 19;
+    private const int MinimumColumnCount = (int)DialogColumn.statName + 1;
+    private const int MaximumColumnCount = (int)DialogColumn.lockedNext + 1;
     public event Action<string> PreviewEnded;
     public event Action PreviewStarted;
     public event Action<string> PreviewFailed;
@@ -358,18 +359,18 @@ public class DialogPreviewManager : MonoBehaviour
         }
 
         string[] header = rows[0].Split(',');
-        if (header.Length < RequiredColumnCount)
+        if (header.Length < MinimumColumnCount)
         {
-            result.Errors.Add($"表头只有 {header.Length} 列；当前对话格式至少需要 {RequiredColumnCount} 列。");
+            result.Errors.Add($"表头只有 {header.Length} 列；当前对话格式至少需要 {MinimumColumnCount} 列。");
             return result;
         }
 
-        if (header.Length > RequiredColumnCount)
+        if (header.Length > MaximumColumnCount)
         {
             rows[0] = NormalizeCsvRow(rows[0]);
         }
 
-        var inheritedCells = new string[RequiredColumnCount];
+        var inheritedCells = new string[MaximumColumnCount];
         for (int column = 0; column < inheritedCells.Length; column++)
             inheritedCells[column] = string.Empty;
         var nodeIds = new HashSet<int>();
@@ -398,18 +399,18 @@ public class DialogPreviewManager : MonoBehaviour
             }
 
             int columnCount = CountCsvColumns(row);
-            if (columnCount > RequiredColumnCount)
+            if (columnCount > MaximumColumnCount)
             {
                 if (HasNonEmptyExtraColumns(row))
                 {
-                    result.Errors.Add($"第 {lineNumber} 行包含第 {RequiredColumnCount + 1} 列以后的非空内容；当前对话格式最多支持 {RequiredColumnCount} 列。");
+                    result.Errors.Add($"第 {lineNumber} 行包含第 {MaximumColumnCount + 1} 列以后的非空内容；当前对话格式最多支持 {MaximumColumnCount} 列。");
                     continue;
                 }
 
                 rows[rowIndex] = NormalizeCsvRow(row);
                 row = rows[rowIndex];
             }
-            else if (columnCount < RequiredColumnCount)
+            else if (columnCount < MaximumColumnCount)
             {
                 rows[rowIndex] = NormalizeCsvRow(row);
                 row = rows[rowIndex];
@@ -440,7 +441,7 @@ public class DialogPreviewManager : MonoBehaviour
             expectedId++;
             nodeCount++;
 
-            // 与 DialogTree.ReadText 保持一致：0-6 列允许沿用上一行，7-17 列每行重置，音乐列允许沿用。
+            // 与 DialogTree.ReadText 保持一致：0-6 列允许沿用上一行，7-17 列及条件表现列每行重置，音乐列允许沿用。
             for (int column = 0; column <= (int)DialogColumn.cg; column++)
             {
                 if (!string.IsNullOrEmpty(cells[column]))
@@ -450,6 +451,8 @@ public class DialogPreviewManager : MonoBehaviour
                 inheritedCells[column] = cells[column];
             if (!string.IsNullOrEmpty(cells[(int)DialogColumn.music]))
                 inheritedCells[(int)DialogColumn.music] = cells[(int)DialogColumn.music];
+            for (int column = (int)DialogColumn.requirementBehavior; column <= (int)DialogColumn.lockedNext; column++)
+                inheritedCells[column] = cells[column];
 
             string type = inheritedCells[(int)DialogColumn.type];
             if (type != "#" && type != "&")
@@ -464,6 +467,7 @@ public class DialogPreviewManager : MonoBehaviour
             ValidateNumberPairs(result, lineNumber, inheritedCells[(int)DialogColumn.statName], inheritedCells[(int)DialogColumn.statAmount], "影响数值", "影响量");
             ValidateNumberPairs(result, lineNumber, inheritedCells[(int)DialogColumn.needName], inheritedCells[(int)DialogColumn.needValue], "需要数值", "需求量");
             ValidateJump(result, jumps, lineNumber, id, type, inheritedCells[(int)DialogColumn.next]);
+            ValidateChoiceRequirementBehavior(result, jumps, lineNumber, id, type, inheritedCells);
             ValidateResources(result, lineNumber, inheritedCells, resourceReferences);
         }
 
@@ -770,6 +774,58 @@ public class DialogPreviewManager : MonoBehaviour
         jumps.Add(new JumpReference(lineNumber, id, targetId));
     }
 
+    private static void ValidateChoiceRequirementBehavior(
+        DialogPreviewValidationResult result,
+        List<JumpReference> jumps,
+        int lineNumber,
+        int id,
+        string type,
+        string[] cells)
+    {
+        string behavior = cells[(int)DialogColumn.requirementBehavior].Trim();
+        string lockedNext = cells[(int)DialogColumn.lockedNext].Trim();
+
+        if (string.IsNullOrEmpty(behavior))
+        {
+            if (!string.IsNullOrEmpty(lockedNext))
+                result.Errors.Add($"第 {lineNumber} 行填写了“锁定跳转”，但未将“条件表现”设为“锁定”。");
+            return;
+        }
+
+        if (type != "&")
+        {
+            result.Errors.Add($"第 {lineNumber} 行的“条件表现”只允许用于选项（&）。");
+            return;
+        }
+
+        if (behavior == "隐藏")
+        {
+            if (!string.IsNullOrEmpty(lockedNext))
+                result.Errors.Add($"第 {lineNumber} 行使用“隐藏”条件表现时不能填写“锁定跳转”。");
+            return;
+        }
+
+        if (behavior != "锁定")
+        {
+            result.Errors.Add($"第 {lineNumber} 行的“条件表现”必须为空、“隐藏”或“锁定”。");
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(cells[(int)DialogColumn.needName]))
+        {
+            result.Errors.Add($"第 {lineNumber} 行使用“锁定”条件表现时必须配置需求数值。");
+            return;
+        }
+
+        if (!int.TryParse(lockedNext, out int targetId) || targetId <= 0)
+        {
+            result.Errors.Add($"第 {lineNumber} 行使用“锁定”条件表现时，“锁定跳转”必须是有效的正整数 ID。");
+            return;
+        }
+
+        jumps.Add(new JumpReference(lineNumber, id, targetId));
+    }
+
     private static void ValidateResources(DialogPreviewValidationResult result, int lineNumber, string[] cells, Dictionary<string, ResourceReference> resourceReferences)
     {
         string scene = cells[(int)DialogColumn.scene];
@@ -1032,7 +1088,7 @@ public class DialogPreviewManager : MonoBehaviour
         {
             if (row[i] != ',') continue;
             commaCount++;
-            if (commaCount == RequiredColumnCount)
+            if (commaCount == MaximumColumnCount)
                 return row.Substring(i + 1).Trim(',').Trim().Length > 0;
         }
 
@@ -1042,22 +1098,22 @@ public class DialogPreviewManager : MonoBehaviour
     private static string NormalizeCsvRow(string row)
     {
         int columns = CountCsvColumns(row);
-        if (columns == RequiredColumnCount)
+        if (columns == MaximumColumnCount)
             return row;
 
-        if (columns > RequiredColumnCount)
+        if (columns > MaximumColumnCount)
         {
             int commaCount = 0;
             for (int i = 0; i < row.Length; i++)
             {
                 if (row[i] != ',') continue;
                 commaCount++;
-                if (commaCount == RequiredColumnCount)
+                if (commaCount == MaximumColumnCount)
                     return row.Substring(0, i);
             }
         }
 
-        return row + new string(',', RequiredColumnCount - columns);
+        return row + new string(',', MaximumColumnCount - columns);
     }
 
     private static bool IsValidUtf8(byte[] bytes)
@@ -1088,7 +1144,7 @@ public class DialogPreviewManager : MonoBehaviour
         if (!validation.IsValid)
             throw new InvalidOperationException(validation.ToDisplayText());
 
-        // 预览使用与校验相同的 18 列规范，避免运行时再次解析 Excel 导出的空列。
+        // 预览使用与校验相同的 13-21 列兼容规范，避免运行时再次解析 Excel 导出的空列。
         csvText = NormalizeCsvText(csvText);
 
         var fileName = System.IO.Path.GetFileNameWithoutExtension(filePath);

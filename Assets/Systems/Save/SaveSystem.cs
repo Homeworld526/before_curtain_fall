@@ -1566,6 +1566,7 @@ public class SaveSystem : SingleCase<SaveSystem>
     public void CreateNewSaveData()
     {
         currentSaveData = new CompleteSaveData();
+        BackboneSystem.BeginNewGame();
     }
 
     private void CollectDialogStatsData()
@@ -1579,7 +1580,10 @@ public class SaveSystem : SingleCase<SaveSystem>
     private void ApplyDialogStatsData()
     {
         if (DialogList.Instance != null && DialogList.Instance.statData != null)
+        {
             DialogList.Instance.statData.LoadFromEntries(currentSaveData.DialogStats);
+            BackboneSystem.EnsureInitializedAfterLoad();
+        }
     }
 }
 

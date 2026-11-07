@@ -35,6 +35,7 @@ public static class StaticStateResetManager
         DialogList.ResetStaticState();
         DialogVisual.ResetStaticState();
         DialogKeywordDetector.ResetStaticState();
+        BackboneSystem.ResetRuntimeState();
         
         // 好感度模块
         AffectionManager.ResetStaticState();
