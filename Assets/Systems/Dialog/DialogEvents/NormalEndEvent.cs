@@ -34,6 +34,9 @@ public class NormalEndEvent : DialogEventHost
     
     protected override void DialogEndEvent(string param)
     {
+        if (BackboneEndingService.TryStartZeroBackboneEnding())
+            return;
+
         // 设置对话框为不激活状态
         Dialog.SetActive(false);
 

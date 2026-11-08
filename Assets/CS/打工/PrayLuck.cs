@@ -1,5 +1,6 @@
 using UnityEngine;
 using System;
+using System.Collections;
 
 public class PrayLuck : MonoBehaviour
 {
@@ -17,11 +18,26 @@ public class PrayLuck : MonoBehaviour
     public float hoverScale = 1.1f;
     public float scaleLerpSpeed = 10f;
 
-    SpriteRenderer _spriteRenderer;
+    [Header("点击反馈")]
+    [SerializeField, Range(1f, 1.5f)] private float clickScale = 1.18f;
+    [SerializeField, Min(0.01f)] private float clickAnimationDuration = 0.16f;
+
+    [Header("骨气状态提示")]
+    [SerializeField] private int lowBackboneUpperBound = 39;
+    [SerializeField] private int uneasyBackboneUpperBound = 59;
+    [SerializeField] private int steadyBackboneUpperBound = 79;
+    [TextArea(2, 4)] [SerializeField] private string lowBackboneText = "烛火在你低垂的眼前摇晃，你一时不敢直视圣母像。";
+    [TextArea(2, 4)] [SerializeField] private string uneasyBackboneText = "你在圣母像前停留许久，心里的迟疑仍没有散去。";
+    [TextArea(2, 4)] [SerializeField] private string steadyBackboneText = "烛光落在你的肩上，你仍在思量该如何开口。";
+    [TextArea(2, 4)] [SerializeField] private string firmBackboneText = "你抬眼望向圣母像，心中那句话已经有了答案。";
+
     Vector3 _originalScale;
     bool _isHovering;
     bool _hasPrayedThisWeek;
+    bool _isShowingInteractionTip;
+    bool _isPlayingClickFeedback;
     Vector3 _arrowOriginalPos;
+    Coroutine _clickFeedbackCoroutine;
 
     public bool HasPrayedThisWeek => _hasPrayedThisWeek;
 
@@ -59,7 +75,6 @@ public class PrayLuck : MonoBehaviour
 
     void Start()
     {
-        _spriteRenderer = GetComponent<SpriteRenderer>();
         _originalScale = transform.localScale;
 
         if (arrowObject != null)
@@ -114,18 +129,26 @@ public class PrayLuck : MonoBehaviour
 
         _isHovering = hit.collider != null && (hit.collider.gameObject == gameObject || hit.collider.transform.parent == transform);
 
-        if (_isHovering && !_hasPrayedThisWeek)
-            transform.localScale = Vector3.Lerp(transform.localScale, _originalScale * hoverScale, Time.deltaTime * scaleLerpSpeed);
-        else
-            transform.localScale = Vector3.Lerp(transform.localScale, _originalScale, Time.deltaTime * scaleLerpSpeed);
+        if (!_isPlayingClickFeedback)
+        {
+            Vector3 targetScale = _isHovering ? _originalScale * hoverScale : _originalScale;
+            transform.localScale = Vector3.Lerp(transform.localScale, targetScale, Time.deltaTime * scaleLerpSpeed);
+        }
 
-        if (Input.GetMouseButtonDown(0) && _isHovering && !_hasPrayedThisWeek)
-            OnPrayClicked();
+        if (Input.GetMouseButtonDown(0) && _isHovering && !_isShowingInteractionTip)
+        {
+            if (_hasPrayedThisWeek)
+                OnBackboneStatusClicked();
+            else
+                OnPrayClicked();
+        }
     }
 
     void OnPrayClicked()
     {
         _hasPrayedThisWeek = true;
+        _isShowingInteractionTip = true;
+        PlayClickFeedback();
 
         if (arrowObject != null)
         {
@@ -133,35 +156,90 @@ public class PrayLuck : MonoBehaviour
             arrowObject.SetActive(false);
         }
 
-        if (_spriteRenderer != null)
-            _spriteRenderer.enabled = false;
+        if (JobManager.Instance == null)
+            throw new InvalidOperationException("圣母像祈祷需要活动的 JobManager 实例。");
 
-        if (JobManager.Instance != null)
-            JobManager.Instance.ShowPrayTip(OnPrayComplete);
+        JobManager.Instance.ShowPrayTip(OnPrayComplete);
     }
 
     void OnPrayComplete()
     {
+        _isShowingInteractionTip = false;
+    }
+
+    void OnBackboneStatusClicked()
+    {
+        if (JobManager.Instance == null)
+            throw new InvalidOperationException("圣母像骨气提示需要活动的 JobManager 实例。");
+
+        _isShowingInteractionTip = true;
+        PlayClickFeedback();
+        JobManager.Instance.ShowBackboneTip(GetBackboneStatusText(), () => _isShowingInteractionTip = false);
+    }
+
+    private void PlayClickFeedback()
+    {
+        if (_clickFeedbackCoroutine != null)
+            StopCoroutine(_clickFeedbackCoroutine);
+
+        _clickFeedbackCoroutine = StartCoroutine(PlayClickFeedbackCoroutine());
+    }
+
+    private IEnumerator PlayClickFeedbackCoroutine()
+    {
+        _isPlayingClickFeedback = true;
+
+        Vector3 pressedScale = _originalScale * clickScale;
+        yield return ScaleTo(transform.localScale, pressedScale, clickAnimationDuration * 0.5f);
+
+        Vector3 restingScale = _isHovering ? _originalScale * hoverScale : _originalScale;
+        yield return ScaleTo(pressedScale, restingScale, clickAnimationDuration * 0.5f);
+
+        _isPlayingClickFeedback = false;
+        _clickFeedbackCoroutine = null;
+    }
+
+    private IEnumerator ScaleTo(Vector3 from, Vector3 to, float duration)
+    {
+        float elapsed = 0f;
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            transform.localScale = Vector3.Lerp(from, to, elapsed / duration);
+            yield return null;
+        }
+
+        transform.localScale = to;
+    }
+
+    private string GetBackboneStatusText()
+    {
+        int backbone = BackboneSystem.CurrentValue;
+        if (backbone <= lowBackboneUpperBound)
+            return lowBackboneText;
+        if (backbone <= uneasyBackboneUpperBound)
+            return uneasyBackboneText;
+        if (backbone <= steadyBackboneUpperBound)
+            return steadyBackboneText;
+
+        return firmBackboneText;
     }
 
     public void SetPrayed()
     {
         _hasPrayedThisWeek = true;
         if (arrowObject != null) arrowObject.SetActive(false);
-        if (_spriteRenderer != null) _spriteRenderer.enabled = false;
     }
 
     public void ResetWeeklyState()
     {
         _hasPrayedThisWeek = false;
+        _isShowingInteractionTip = false;
 
         if (arrowObject != null)
         {
             arrowObject.transform.localPosition = _arrowOriginalPos;
             arrowObject.SetActive(true);
         }
-
-        if (_spriteRenderer != null)
-            _spriteRenderer.enabled = true;
     }
 }

@@ -16,6 +16,11 @@ public class DiaPlayer : MonoBehaviour
 
 public class DialogList : SingleCase<DialogList> 
 {
+    public const string BackboneAtLeastMonitor = "骨气";
+    public const string BackboneBelowMonitor = "骨气<";
+    public const string BackboneAboveMonitor = "骨气>";
+    public const string CashAtLeastMonitor = "现金";
+
     public delegate void DialogAction(string param);
     public DialogVisual visual;
     public List<TextAsset> dialogs;
@@ -104,8 +109,23 @@ public class DialogList : SingleCase<DialogList>
 
     public bool CheckMonitor(string name, int value)
     {
-        if (name.Trim() == BackboneSystem.StatKey)
+        string monitorName = name.Trim();
+        if (monitorName == BackboneAtLeastMonitor)
             return BackboneSystem.IsAtLeast(value);
+
+        if (monitorName == BackboneBelowMonitor)
+            return BackboneSystem.IsBelow(value);
+
+        if (monitorName == BackboneAboveMonitor)
+            return BackboneSystem.CurrentValue > value;
+
+        if (monitorName == CashAtLeastMonitor)
+        {
+            if (JobManager.Instance == null)
+                throw new System.InvalidOperationException("现金条件需要活动的 JobManager 实例。");
+
+            return JobManager.Instance.currentMoney >= value;
+        }
 
         int val = statData != null ? statData.GetInt(name, -1) : PlayerPrefs.GetInt(name, -1);
         Debug.Log("获取数值" + name + ": " + val);

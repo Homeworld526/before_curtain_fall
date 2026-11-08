@@ -34,6 +34,24 @@ public class JobManager : MonoBehaviour
     private List<string> levelUpJobs = new List<string>();
     private List<string> performedCharJobs = new List<string>(); // 记录本周执行的角色打工
     private JobData _lyingFlatJob; // 躺平打工数据缓存
+
+    private struct PendingJobChoice
+    {
+        public string jobName;
+        public JobWorkChoice choice;
+    }
+
+    private enum ConfirmDialogMode
+    {
+        WorkExecution,
+        JobChoice
+    }
+
+    private readonly Queue<PendingJobChoice> _pendingJobChoices = new Queue<PendingJobChoice>();
+    private int _pendingBackboneDelta;
+    private bool _settlementApplied;
+    private ConfirmDialogMode _confirmDialogMode;
+    private PendingJobChoice _activeJobChoice;
     
     // 小图片图集缓存（合并两个图集到一个字典）
     private static Dictionary<string, Sprite> _smallSpriteDict;
@@ -51,6 +69,7 @@ public class JobManager : MonoBehaviour
     public int totalDays = 0;
     private int usedDaysInWeek = 0;
     private readonly System.DateTime startDate = new System.DateTime(2025, 11, 18);
+    public System.DateTime CurrentGameDate => startDate.AddDays(totalDays);
     #endregion
 
     #region 核心数值
@@ -157,6 +176,10 @@ public class JobManager : MonoBehaviour
     private TextMeshProUGUI confirmDialogText;
     private Button confirmYesBtn;
     private Button confirmNoBtn;
+    private TextMeshProUGUI confirmYesButtonText;
+    private TextMeshProUGUI confirmNoButtonText;
+    private Image confirmYesButtonIcon;
+    private Image confirmNoButtonIcon;
 
     //private GameObject workBackground;
     //public float moveRange = 30f;
@@ -344,6 +367,84 @@ public class JobManager : MonoBehaviour
     {
         if (button == null) return;
         button.onClick.AddListener(call);
+    }
+
+    private void ConfigureChoiceButtonVisuals(string compromiseText, string assertiveText)
+    {
+        if (confirmYesButtonText == null)
+            confirmYesButtonText = CreateChoiceButtonText(confirmYesBtn);
+        if (confirmNoButtonText == null)
+            confirmNoButtonText = CreateChoiceButtonText(confirmNoBtn);
+
+        if (confirmYesButtonIcon == null)
+            confirmYesButtonIcon = GetConfirmationButtonIcon(confirmYesBtn);
+        if (confirmNoButtonIcon == null)
+            confirmNoButtonIcon = GetConfirmationButtonIcon(confirmNoBtn);
+
+        confirmYesButtonText.text = compromiseText;
+        confirmNoButtonText.text = assertiveText;
+        confirmYesButtonText.gameObject.SetActive(true);
+        confirmNoButtonText.gameObject.SetActive(true);
+
+        if (confirmYesButtonIcon != null)
+            confirmYesButtonIcon.enabled = false;
+        if (confirmNoButtonIcon != null)
+            confirmNoButtonIcon.enabled = false;
+    }
+
+    private void RestoreConfirmationButtonVisuals()
+    {
+        if (confirmYesButtonText != null)
+            confirmYesButtonText.gameObject.SetActive(false);
+        if (confirmNoButtonText != null)
+            confirmNoButtonText.gameObject.SetActive(false);
+        if (confirmYesButtonIcon != null)
+            confirmYesButtonIcon.enabled = true;
+        if (confirmNoButtonIcon != null)
+            confirmNoButtonIcon.enabled = true;
+    }
+
+    private TextMeshProUGUI CreateChoiceButtonText(Button button)
+    {
+        if (confirmDialogText == null)
+            throw new System.InvalidOperationException("打工选择题无法获取确认弹窗文本样式。");
+
+        GameObject labelObject = new GameObject(
+            "WorkChoiceLabel",
+            typeof(RectTransform),
+            typeof(CanvasRenderer),
+            typeof(TextMeshProUGUI));
+        labelObject.transform.SetParent(button.transform, false);
+
+        RectTransform rect = labelObject.GetComponent<RectTransform>();
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.one;
+        rect.offsetMin = new Vector2(8f, 4f);
+        rect.offsetMax = new Vector2(-8f, -4f);
+
+        TextMeshProUGUI label = labelObject.GetComponent<TextMeshProUGUI>();
+        label.font = confirmDialogText.font;
+        label.fontSize = 20f;
+        label.enableAutoSizing = true;
+        label.fontSizeMin = 12f;
+        label.fontSizeMax = 20f;
+        label.enableWordWrapping = true;
+        label.alignment = TextAlignmentOptions.Center;
+        label.color = confirmDialogText.color;
+        label.raycastTarget = false;
+        return label;
+    }
+
+    private static Image GetConfirmationButtonIcon(Button button)
+    {
+        Image[] images = button.GetComponentsInChildren<Image>(true);
+        for (int i = 0; i < images.Length; i++)
+        {
+            if (images[i].gameObject != button.gameObject)
+                return images[i];
+        }
+
+        return null;
     }
 
     private void Start()
@@ -705,6 +806,8 @@ public class JobManager : MonoBehaviour
             cdVal = jobTemplate.cdVal,
             rewards = jobTemplate.rewards,
             unlockWeek = jobTemplate.unlockWeek,
+            Backbone = jobTemplate.Backbone,
+            workChoice = jobTemplate.workChoice,
             imageName = jobTemplate.imageName,
             head = jobTemplate.head,
             BG = jobTemplate.BG,
@@ -863,6 +966,9 @@ public class JobManager : MonoBehaviour
     #region 打工确认对话框
     void ShowWorkConfirmDialog()
     {
+        _confirmDialogMode = ConfirmDialogMode.WorkExecution;
+        RestoreConfirmationButtonVisuals();
+
         if (confirmDialogPanel == null)
         {
             gowork();
@@ -889,6 +995,12 @@ public class JobManager : MonoBehaviour
     
     void OnConfirmYes()
     {
+        if (_confirmDialogMode == ConfirmDialogMode.JobChoice)
+        {
+            ResolveActiveJobChoice(true);
+            return;
+        }
+
         if (confirmDialogPanel != null)
         {
             confirmDialogPanel.SetActive(false);
@@ -906,6 +1018,12 @@ public class JobManager : MonoBehaviour
 
     void OnConfirmNo()
     {
+        if (_confirmDialogMode == ConfirmDialogMode.JobChoice)
+        {
+            ResolveActiveJobChoice(false);
+            return;
+        }
+
         if (confirmDialogPanel != null)
         {
             confirmDialogPanel.SetActive(false);
@@ -919,6 +1037,9 @@ public class JobManager : MonoBehaviour
     void gowork()
     {
         totalReward = 0;
+        _pendingBackboneDelta = 0;
+        _pendingJobChoices.Clear();
+        _settlementApplied = false;
         actCG.Clear();
         levelUpJobs.Clear();
         performedCharJobs.Clear();
@@ -1049,6 +1170,7 @@ public class JobManager : MonoBehaviour
                 }
 
                 totalReward += GetFinalReward(reward) * executionCount;
+                RegisterJobSettlementEffects(job, executionCount);
             }
         }
 
@@ -1060,6 +1182,86 @@ public class JobManager : MonoBehaviour
         SoundsManager.Instance.PreloadMusic("Audio/Music/小平房间循环曲");
 
         StartCoroutine(PlayCGAndPaySequence());
+    }
+
+    private void RegisterJobSettlementEffects(JobData job, int executionCount)
+    {
+        if (job.ischar)
+            return;
+
+        checked
+        {
+            _pendingBackboneDelta += job.Backbone * executionCount;
+        }
+
+        if (job.workChoice == null)
+            return;
+
+        if (string.IsNullOrWhiteSpace(job.workChoice.prompt)
+            || string.IsNullOrWhiteSpace(job.workChoice.compromiseText)
+            || string.IsNullOrWhiteSpace(job.workChoice.assertiveText))
+        {
+            throw new System.InvalidOperationException($"打工“{job.name}”的选择题配置不完整。");
+        }
+
+        for (int executionIndex = 0; executionIndex < executionCount; executionIndex++)
+        {
+            _pendingJobChoices.Enqueue(new PendingJobChoice
+            {
+                jobName = job.name,
+                choice = job.workChoice
+            });
+        }
+    }
+
+    private void CompleteWorkSettlement()
+    {
+        if (_pendingJobChoices.Count > 0)
+        {
+            ShowNextJobChoice();
+            return;
+        }
+
+        FinishWork();
+    }
+
+    private void ShowNextJobChoice()
+    {
+        if (confirmDialogPanel == null || confirmDialogText == null || confirmYesBtn == null || confirmNoBtn == null)
+        {
+            throw new System.InvalidOperationException("打工选择题需要完整的确认弹窗引用。");
+        }
+
+        _activeJobChoice = _pendingJobChoices.Dequeue();
+        _confirmDialogMode = ConfirmDialogMode.JobChoice;
+        ConfigureChoiceButtonVisuals(_activeJobChoice.choice.compromiseText, _activeJobChoice.choice.assertiveText);
+        confirmDialogText.text = $"{_activeJobChoice.jobName}\n{_activeJobChoice.choice.prompt}";
+        confirmDialogPanel.SetActive(true);
+    }
+
+    private void ResolveActiveJobChoice(bool choseCompromise)
+    {
+        JobWorkChoice choice = _activeJobChoice.choice;
+        int cashDelta = choseCompromise ? choice.compromiseCashDelta : choice.assertiveCashDelta;
+        int backboneDelta = choseCompromise ? choice.compromiseBackboneDelta : choice.assertiveBackboneDelta;
+
+        checked
+        {
+            totalReward += cashDelta;
+            _pendingBackboneDelta += backboneDelta;
+        }
+
+        Debug.Log($"[JobManager] {_activeJobChoice.jobName} 打工选择结算待处理：现金 {cashDelta:+#;-#;0}，骨气 {backboneDelta:+#;-#;0}");
+        confirmDialogPanel.SetActive(false);
+        CompleteWorkSettlement();
+    }
+
+    private void ApplyPendingBackboneChanges()
+    {
+        if (_pendingBackboneDelta == 0)
+            return;
+
+        BackboneSystem.Adjust(_pendingBackboneDelta, $"第 {currentWeek} 周打工结算");
     }
 
     private void FillEmptySlotsWithLyingFlat()
@@ -1450,7 +1652,7 @@ public class JobManager : MonoBehaviour
             
             yield return StartCoroutine(WaitForBlackoutTransitionWithCallback(() =>
             {
-                FinishWork();
+                CompleteWorkSettlement();
             }));
             yield break;
         }
@@ -1501,7 +1703,7 @@ public class JobManager : MonoBehaviour
                 workCGUI.SetActive(false);
             }
             yield return new WaitForEndOfFrame();
-            FinishWork();
+            CompleteWorkSettlement();
             yield break;
         }
 
@@ -1653,7 +1855,7 @@ public class JobManager : MonoBehaviour
             // 使用黑屏过渡进入结算（UI已在小剧场播放前隐藏）
             yield return StartCoroutine(WaitForBlackoutTransitionWithCallback(() =>
             {
-                FinishWork();
+                CompleteWorkSettlement();
             }));
     }
 
@@ -2129,6 +2331,14 @@ public class JobManager : MonoBehaviour
 
     void FinishWork()
     {
+        if (_settlementApplied)
+        {
+            Debug.LogError("[JobManager] 本周打工结算已完成，拒绝重复结算。");
+            return;
+        }
+
+        _settlementApplied = true;
+        ApplyPendingBackboneChanges();
         StopWorkBgm();
         
         if (ShowMapButton.instance != null && ShowMapButton.instance.isShow)
@@ -2836,6 +3046,17 @@ public class JobManager : MonoBehaviour
         StartCoroutine(ShowPrayTipCoroutine(onComplete));
     }
 
+    public void ShowBackboneTip(string statusText, System.Action onComplete = null)
+    {
+        if (string.IsNullOrWhiteSpace(statusText))
+            throw new System.ArgumentException("骨气状态提示文本不能为空。", nameof(statusText));
+        if (luckTipPanel == null || luckText == null)
+            throw new System.InvalidOperationException("骨气状态提示需要 luckTipPanel 和 luckText 引用。");
+
+        luckTipPanel.SetActive(true);
+        StartCoroutine(ShowBackboneTipCoroutine(statusText, onComplete));
+    }
+
     private IEnumerator ShowPrayTipCoroutine(System.Action onComplete)
     {
         luckText.text = "划过十字，你闭上眼，十指交扣，在圣母像前祷告。";
@@ -2856,6 +3077,14 @@ public class JobManager : MonoBehaviour
         luckText.text = luckDesc;
         yield return new WaitForSeconds(2f);
 
+        luckTipPanel.SetActive(false);
+        onComplete?.Invoke();
+    }
+
+    private IEnumerator ShowBackboneTipCoroutine(string statusText, System.Action onComplete)
+    {
+        luckText.text = statusText;
+        yield return new WaitForSeconds(2f);
         luckTipPanel.SetActive(false);
         onComplete?.Invoke();
     }

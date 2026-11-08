@@ -97,12 +97,11 @@ public class StoryDotManager : MonoBehaviour
     public bool IsStoryAvailable(StoryDotConfig config)
     {
         if (config == null || config.stories == null) return false;
+        config.ValidateStoryEntries();
         int currentWeek = JobManager.Instance != null ? JobManager.Instance.currentWeek : 1;
         foreach (var entry in config.stories)
         {
-            if (!IsStoryCompleted(config.characterName, entry.dialogIndex)
-                && currentWeek >= entry.requiredWeek
-                && CheckAffection(config.characterName, entry.requiredAffection))
+            if (IsStoryEntryAvailable(config, entry, currentWeek))
                 return true;
         }
 
@@ -112,15 +111,37 @@ public class StoryDotManager : MonoBehaviour
     public int GetFirstAvailableDialogIndex(StoryDotConfig config)
     {
         if (config == null || config.stories == null) return -1;
+        config.ValidateStoryEntries();
         int currentWeek = JobManager.Instance != null ? JobManager.Instance.currentWeek : 1;
         foreach (var entry in config.stories)
         {
-            if (!IsStoryCompleted(config.characterName, entry.dialogIndex)
-                && currentWeek >= entry.requiredWeek
-                && CheckAffection(config.characterName, entry.requiredAffection))
+            if (IsStoryEntryAvailable(config, entry, currentWeek))
                 return entry.dialogIndex;
         }
         return -1;
+    }
+
+    private static bool IsStoryEntryAvailable(StoryDotConfig config, StoryDotConfig.StoryEntry entry, int currentWeek)
+    {
+        if (IsStoryCompleted(config.characterName, entry.dialogIndex) ||
+            currentWeek < entry.requiredWeek ||
+            !CheckAffection(config.characterName, entry.requiredAffection))
+            return false;
+
+        int backbone = BackboneSystem.CurrentValue;
+        if (entry.requireMinimumBackbone && backbone < entry.minimumBackbone)
+            return false;
+        if (entry.requireMaximumBackboneExclusive && backbone >= entry.maximumBackboneExclusive)
+            return false;
+
+        if (entry.requiredMonth == 0)
+            return true;
+
+        if (JobManager.Instance == null)
+            throw new InvalidOperationException("带日期条件的剧情点需要活动的 JobManager 实例。");
+
+        DateTime currentDate = JobManager.Instance.CurrentGameDate;
+        return currentDate.Month == entry.requiredMonth && currentDate.Day == entry.requiredDay;
     }
 
     private static bool CheckAffection(string characterName, int required)

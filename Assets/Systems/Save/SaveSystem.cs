@@ -1469,6 +1469,8 @@ public class SaveSystem : SingleCase<SaveSystem>
                         cdVal = original.cdVal,
                         rewards = original.rewards,
                         unlockWeek = original.unlockWeek,
+                        Backbone = original.Backbone,
+                        workChoice = original.workChoice,
                         imageName = original.imageName,
                         head = original.head,
                         BG = original.BG,
@@ -1491,6 +1493,8 @@ public class SaveSystem : SingleCase<SaveSystem>
                         cdVal = original.cdVal,
                         rewards = original.rewards,
                         unlockWeek = original.unlockWeek,
+                        Backbone = original.Backbone,
+                        workChoice = original.workChoice,
                         imageName = original.imageName,
                         Refs = original.Refs,
                         Description = original.Description

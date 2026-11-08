@@ -20,6 +20,7 @@ public sealed class BuildPathPreflight : IPreprocessBuildWithReport
     private const string MainScenePath = "Assets/Scenes/SampleScene.unity";
     private const string DialogStatDataPath = "Assets/Systems/Dialog/DialogStatData.asset";
     private const string NormalJobsPath = "Assets/Resources/SchemaTable/Configs/NormalJobs.csv";
+    private const string BackboneEndingConfigPath = "Assets/Resources/Backbone/BackboneEndingConfig.asset";
     private static readonly Regex GuidReference = new Regex(
         @"guid: ([0-9a-f]{32})",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
@@ -64,7 +65,9 @@ public sealed class BuildPathPreflight : IPreprocessBuildWithReport
         ValidateSceneScripts(buildScenes, errors);
         ValidateSerializedReferences(buildScenes, errors);
         ValidateDialogStatData(errors);
+        ValidateBackboneNarrativeConfiguration(errors);
         ValidateChoirConfiguration(errors);
+        ValidateJobChoiceConfiguration(errors);
         return errors;
     }
 
@@ -211,6 +214,45 @@ public sealed class BuildPathPreflight : IPreprocessBuildWithReport
             errors.Add($"骨气值存储资产不存在或类型错误：{DialogStatDataPath}");
     }
 
+    private static void ValidateBackboneNarrativeConfiguration(List<string> errors)
+    {
+        BackboneEndingConfig endingConfig = AssetDatabase.LoadAssetAtPath<BackboneEndingConfig>(BackboneEndingConfigPath);
+        if (endingConfig == null)
+        {
+            errors.Add($"骨气结局配置不存在或类型错误：{BackboneEndingConfigPath}");
+            return;
+        }
+
+        if (endingConfig.enableZeroBackboneEnding)
+        {
+            try
+            {
+                endingConfig.ValidateZeroBackboneEnding();
+            }
+            catch (InvalidOperationException exception)
+            {
+                errors.Add($"骨气归零 BE 配置无效：{exception.Message}");
+            }
+        }
+
+        foreach (string guid in AssetDatabase.FindAssets("t:StoryDotConfig"))
+        {
+            string assetPath = AssetDatabase.GUIDToAssetPath(guid);
+            StoryDotConfig storyDotConfig = AssetDatabase.LoadAssetAtPath<StoryDotConfig>(assetPath);
+            if (storyDotConfig == null || storyDotConfig.stories == null)
+                continue;
+
+            try
+            {
+                storyDotConfig.ValidateStoryEntries();
+            }
+            catch (InvalidOperationException exception)
+            {
+                errors.Add($"剧情点配置无效 {assetPath}：{exception.Message}");
+            }
+        }
+    }
+
     private static void ValidateChoirConfiguration(List<string> errors)
     {
         if (!File.Exists(NormalJobsPath))
@@ -239,6 +281,57 @@ public sealed class BuildPathPreflight : IPreprocessBuildWithReport
 
         if (!int.TryParse(columns[7], out int backboneValue) || backboneValue != 2)
             errors.Add($"唱诗班的 backbone 必须为 2，当前值为“{columns[7]}”。");
+    }
+
+    private static void ValidateJobChoiceConfiguration(List<string> errors)
+    {
+        if (!File.Exists(NormalJobsPath))
+            return;
+
+        string[] rows = File.ReadAllLines(NormalJobsPath);
+        for (int rowIndex = 1; rowIndex < rows.Length; rowIndex++)
+        {
+            if (string.IsNullOrWhiteSpace(rows[rowIndex]))
+                continue;
+
+            string[] columns = rows[rowIndex].Split(',');
+            if (columns.Length <= 16)
+                continue;
+
+            bool hasQuestion = !string.IsNullOrWhiteSpace(columns[16]);
+            bool hasChoicePayload = false;
+            for (int columnIndex = 17; columnIndex < columns.Length; columnIndex++)
+            {
+                if (!string.IsNullOrWhiteSpace(columns[columnIndex]))
+                {
+                    hasChoicePayload = true;
+                    break;
+                }
+            }
+
+            if (!hasQuestion)
+            {
+                if (hasChoicePayload)
+                    errors.Add($"普通打工第 {rowIndex + 1} 行填写了打工选择效果，但未填写题目。");
+                continue;
+            }
+
+            if (columns.Length < 23)
+            {
+                errors.Add($"普通打工第 {rowIndex + 1} 行配置了打工选择题，但列数不足 23 列。");
+                continue;
+            }
+
+            if (string.IsNullOrWhiteSpace(columns[17]) || string.IsNullOrWhiteSpace(columns[20]))
+                errors.Add($"普通打工第 {rowIndex + 1} 行的打工选择题缺少任一选项文本。");
+
+            int[] numericColumns = { 18, 19, 21, 22 };
+            foreach (int columnIndex in numericColumns)
+            {
+                if (!int.TryParse(columns[columnIndex], out _))
+                    errors.Add($"普通打工第 {rowIndex + 1} 行的打工选择题第 {columnIndex + 1} 列必须是整数。");
+            }
+        }
     }
 
     private static string FormatErrors(IEnumerable<string> errors)

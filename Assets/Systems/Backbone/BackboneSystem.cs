@@ -9,8 +9,6 @@ public static class BackboneSystem
 {
     public const string StatKey = "骨气";
     public const int InitialValue = 80;
-    public const int MinimumValue = 0;
-    public const int MaximumValue = 100;
 
     private static bool _newGameInitializationRequested;
 
@@ -61,6 +59,7 @@ public static class BackboneSystem
         {
             _newGameInitializationRequested = false;
             SetValue(statData, InitialValue, "新游戏初始化");
+            BackboneEndingService.ResetForNewGame(statData);
             return;
         }
 
@@ -86,7 +85,11 @@ public static class BackboneSystem
         EnsureStoredValue(statData, "变更前初始化");
 
         int previousValue = statData.GetInt(StatKey);
-        int nextValue = Clamp(previousValue + delta);
+        int nextValue;
+        checked
+        {
+            nextValue = previousValue + delta;
+        }
         if (nextValue == previousValue)
             return nextValue;
 
@@ -113,26 +116,18 @@ public static class BackboneSystem
             return;
         }
 
-        int clampedValue = Clamp(storedValue);
-        if (clampedValue != storedValue)
-            SetValue(statData, clampedValue, reason + "（范围修正）");
+        // 已有存档中的任意 int 值均为合法骨气值，不做范围修正。
     }
 
     private static void SetValue(DialogStatDataSO statData, int value, string reason)
     {
-        int nextValue = Clamp(value);
         int previousValue = statData.TryGetInt(StatKey, out int existingValue)
             ? existingValue
             : InitialValue;
 
-        statData.SetInt(StatKey, nextValue);
-        Debug.Log($"[BackboneSystem] {reason}: {previousValue} -> {nextValue}");
-        ValueChanged?.Invoke(previousValue, nextValue);
-    }
-
-    private static int Clamp(int value)
-    {
-        return Mathf.Clamp(value, MinimumValue, MaximumValue);
+        statData.SetInt(StatKey, value);
+        Debug.Log($"[BackboneSystem] {reason}: {previousValue} -> {value}");
+        ValueChanged?.Invoke(previousValue, value);
     }
 
     private static DialogStatDataSO RequireStatData()

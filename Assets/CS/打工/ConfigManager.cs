@@ -7,6 +7,7 @@ public class ConfigManager : MonoBehaviour
 {
     private const string NormalJobsResourcePath = "SchemaTable/Configs/NormalJobs";
     private const string CharacterJobsResourcePath = "SchemaTable/Configs/CharacterJobs";
+    private const int NormalJobWorkChoiceColumnCount = 23;
 
     public static ConfigManager Instance { get; private set; }
 
@@ -111,6 +112,53 @@ public class ConfigManager : MonoBehaviour
                 if (cols.Length > 15 && !string.IsNullOrEmpty(cols[15]))
                 {
                     job.unlockDialogKeyword = cols[15].Trim();
+                }
+
+                if (cols.Length > 16)
+                {
+                    bool hasQuestion = !string.IsNullOrWhiteSpace(cols[16]);
+                    bool hasChoicePayload = false;
+                    for (int questionColumn = 17; questionColumn < cols.Length; questionColumn++)
+                    {
+                        if (!string.IsNullOrWhiteSpace(cols[questionColumn]))
+                        {
+                            hasChoicePayload = true;
+                            break;
+                        }
+                    }
+
+                    if (!hasQuestion && hasChoicePayload)
+                    {
+                        throw new InvalidDataException(
+                            $"[LoadCsv] {resourceName} 第 {i} 行填写了打工选择效果，但未填写题目。");
+                    }
+
+                    if (hasQuestion && cols.Length < NormalJobWorkChoiceColumnCount)
+                    {
+                        throw new InvalidDataException(
+                            $"[LoadCsv] {resourceName} 第 {i} 行配置了打工选择题，但只有 {cols.Length} 列；需要 {NormalJobWorkChoiceColumnCount} 列。");
+                    }
+
+                    if (hasQuestion)
+                    {
+                        job.workChoice = new JobWorkChoice
+                        {
+                            prompt = cols[16].Trim(),
+                            compromiseText = cols[17].Trim(),
+                            compromiseCashDelta = int.Parse(cols[18]),
+                            compromiseBackboneDelta = int.Parse(cols[19]),
+                            assertiveText = cols[20].Trim(),
+                            assertiveCashDelta = int.Parse(cols[21]),
+                            assertiveBackboneDelta = int.Parse(cols[22])
+                        };
+
+                        if (string.IsNullOrWhiteSpace(job.workChoice.compromiseText)
+                            || string.IsNullOrWhiteSpace(job.workChoice.assertiveText))
+                        {
+                            throw new InvalidDataException(
+                                $"[LoadCsv] {resourceName} 第 {i} 行的打工选择题缺少任一选项文本。");
+                        }
+                    }
                 }
             }
             else

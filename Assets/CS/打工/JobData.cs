@@ -27,6 +27,18 @@ namespace GameSystem
     }
 
     [Serializable]
+    public class JobWorkChoice
+    {
+        public string prompt;
+        public string compromiseText;
+        public int compromiseCashDelta;
+        public int compromiseBackboneDelta;
+        public string assertiveText;
+        public int assertiveCashDelta;
+        public int assertiveBackboneDelta;
+    }
+
+    [Serializable]
     public class JobData
     {
         public bool ischar = false;
@@ -44,6 +56,7 @@ namespace GameSystem
         public string unlockCharacterName;  // 关联角色名称
         public int favorIncrement;
         public int Backbone;
+        public JobWorkChoice workChoice;
         public string imageName;
         public bool isEmpty = false;
         public bool cannotBeRemoved = false; // 是否不能被删除
