@@ -9,6 +9,7 @@ using UnityEngine.EventSystems;
 public class JobManager : MonoBehaviour
 {
     private const string WorkCgResourceDirectory = "CG/WorkCG";
+    private const float WorkChoiceTriggerProbability = 0.5f;
 
     #region 单例
     public static JobManager Instance { get; private set; }
@@ -25,6 +26,7 @@ public class JobManager : MonoBehaviour
     private struct CGInfo
     {
         public string imageName;
+        public string jobName;
         public string npcName;
         public bool isCharJob;
         public int randomIndex; // 随机索引（1-3）
@@ -39,6 +41,7 @@ public class JobManager : MonoBehaviour
     {
         public string jobName;
         public JobWorkChoice choice;
+        public int jobLevel;
     }
 
     private enum ConfirmDialogMode
@@ -47,11 +50,19 @@ public class JobManager : MonoBehaviour
         JobChoice
     }
 
+    private enum JobChoiceOption
+    {
+        Compromise,
+        Assertive,
+        Third
+    }
+
     private readonly Queue<PendingJobChoice> _pendingJobChoices = new Queue<PendingJobChoice>();
     private int _pendingBackboneDelta;
     private bool _settlementApplied;
     private ConfirmDialogMode _confirmDialogMode;
     private PendingJobChoice _activeJobChoice;
+    private bool _isWaitingForActiveJobChoice;
     
     // 小图片图集缓存（合并两个图集到一个字典）
     private static Dictionary<string, Sprite> _smallSpriteDict;
@@ -176,10 +187,17 @@ public class JobManager : MonoBehaviour
     private TextMeshProUGUI confirmDialogText;
     private Button confirmYesBtn;
     private Button confirmNoBtn;
+    private Button confirmThirdBtn;
     private TextMeshProUGUI confirmYesButtonText;
     private TextMeshProUGUI confirmNoButtonText;
+    private TextMeshProUGUI confirmThirdButtonText;
     private Image confirmYesButtonIcon;
     private Image confirmNoButtonIcon;
+    private Image confirmThirdButtonIcon;
+    private bool hasCachedConfirmationButtonPositions;
+    private Vector2 confirmYesButtonOriginalPosition;
+    private Vector2 confirmNoButtonOriginalPosition;
+    private Vector2 confirmThirdButtonOriginalPosition;
 
     //private GameObject workBackground;
     //public float moveRange = 30f;
@@ -369,8 +387,13 @@ public class JobManager : MonoBehaviour
         button.onClick.AddListener(call);
     }
 
-    private void ConfigureChoiceButtonVisuals(string compromiseText, string assertiveText)
+    private void ConfigureChoiceButtonVisuals(string compromiseText, string assertiveText, bool showThirdChoice, string thirdText)
     {
+        RestoreConfirmationButtonVisuals();
+
+        if (showThirdChoice)
+            EnsureThirdChoiceButton();
+
         if (confirmYesButtonText == null)
             confirmYesButtonText = CreateChoiceButtonText(confirmYesBtn);
         if (confirmNoButtonText == null)
@@ -390,6 +413,26 @@ public class JobManager : MonoBehaviour
             confirmYesButtonIcon.enabled = false;
         if (confirmNoButtonIcon != null)
             confirmNoButtonIcon.enabled = false;
+
+        if (!showThirdChoice)
+            return;
+
+        if (confirmThirdButtonText == null)
+        {
+            confirmThirdButtonText = confirmThirdBtn.GetComponentInChildren<TextMeshProUGUI>(true);
+            if (confirmThirdButtonText == null)
+                confirmThirdButtonText = CreateChoiceButtonText(confirmThirdBtn);
+        }
+        if (confirmThirdButtonIcon == null)
+            confirmThirdButtonIcon = GetConfirmationButtonIcon(confirmThirdBtn);
+
+        confirmThirdButtonText.text = thirdText;
+        confirmThirdButtonText.gameObject.SetActive(true);
+        if (confirmThirdButtonIcon != null)
+            confirmThirdButtonIcon.enabled = false;
+
+        confirmThirdBtn.gameObject.SetActive(true);
+        SetThirdChoiceButtonLayout();
     }
 
     private void RestoreConfirmationButtonVisuals()
@@ -402,6 +445,54 @@ public class JobManager : MonoBehaviour
             confirmYesButtonIcon.enabled = true;
         if (confirmNoButtonIcon != null)
             confirmNoButtonIcon.enabled = true;
+
+        if (confirmThirdBtn != null)
+        {
+            confirmThirdBtn.gameObject.SetActive(false);
+        }
+        if (confirmThirdButtonText != null)
+            confirmThirdButtonText.gameObject.SetActive(false);
+        if (confirmThirdButtonIcon != null)
+            confirmThirdButtonIcon.enabled = true;
+
+        if (hasCachedConfirmationButtonPositions)
+        {
+            ((RectTransform)confirmYesBtn.transform).anchoredPosition = confirmYesButtonOriginalPosition;
+            ((RectTransform)confirmNoBtn.transform).anchoredPosition = confirmNoButtonOriginalPosition;
+            if (confirmThirdBtn != null)
+                ((RectTransform)confirmThirdBtn.transform).anchoredPosition = confirmThirdButtonOriginalPosition;
+        }
+    }
+
+    private void EnsureThirdChoiceButton()
+    {
+        if (confirmThirdBtn != null)
+            return;
+
+        RectTransform yesRect = (RectTransform)confirmYesBtn.transform;
+        RectTransform noRect = (RectTransform)confirmNoBtn.transform;
+        confirmYesButtonOriginalPosition = yesRect.anchoredPosition;
+        confirmNoButtonOriginalPosition = noRect.anchoredPosition;
+
+        GameObject thirdButtonObject = Instantiate(confirmNoBtn.gameObject, confirmNoBtn.transform.parent);
+        thirdButtonObject.name = "workConfirmThirdBtn";
+        confirmThirdBtn = thirdButtonObject.GetComponent<Button>();
+        confirmThirdBtn.onClick.RemoveAllListeners();
+        AddButtonClickEvent(confirmThirdBtn, OnConfirmThird);
+        confirmThirdButtonOriginalPosition = ((RectTransform)confirmThirdBtn.transform).anchoredPosition;
+        hasCachedConfirmationButtonPositions = true;
+        confirmThirdBtn.gameObject.SetActive(false);
+    }
+
+    private void SetThirdChoiceButtonLayout()
+    {
+        RectTransform yesRect = (RectTransform)confirmYesBtn.transform;
+        RectTransform noRect = (RectTransform)confirmNoBtn.transform;
+        RectTransform thirdRect = (RectTransform)confirmThirdBtn.transform;
+
+        yesRect.anchoredPosition = new Vector2(-200f, confirmYesButtonOriginalPosition.y);
+        noRect.anchoredPosition = new Vector2(0f, confirmNoButtonOriginalPosition.y);
+        thirdRect.anchoredPosition = new Vector2(200f, confirmThirdButtonOriginalPosition.y);
     }
 
     private TextMeshProUGUI CreateChoiceButtonText(Button button)
@@ -997,7 +1088,7 @@ public class JobManager : MonoBehaviour
     {
         if (_confirmDialogMode == ConfirmDialogMode.JobChoice)
         {
-            ResolveActiveJobChoice(true);
+            ResolveActiveJobChoice(JobChoiceOption.Compromise);
             return;
         }
 
@@ -1020,7 +1111,7 @@ public class JobManager : MonoBehaviour
     {
         if (_confirmDialogMode == ConfirmDialogMode.JobChoice)
         {
-            ResolveActiveJobChoice(false);
+            ResolveActiveJobChoice(JobChoiceOption.Assertive);
             return;
         }
 
@@ -1031,6 +1122,14 @@ public class JobManager : MonoBehaviour
 
         OnNormalButClick();
     }
+
+    void OnConfirmThird()
+    {
+        if (_confirmDialogMode != ConfirmDialogMode.JobChoice)
+            throw new System.InvalidOperationException("第三个确认按钮只能用于打工选择题。");
+
+        ResolveActiveJobChoice(JobChoiceOption.Third);
+    }
     #endregion
 
     #region 打工执行逻辑
@@ -1040,6 +1139,7 @@ public class JobManager : MonoBehaviour
         _pendingBackboneDelta = 0;
         _pendingJobChoices.Clear();
         _settlementApplied = false;
+        _isWaitingForActiveJobChoice = false;
         actCG.Clear();
         levelUpJobs.Clear();
         performedCharJobs.Clear();
@@ -1204,12 +1304,23 @@ public class JobManager : MonoBehaviour
             throw new System.InvalidOperationException($"打工“{job.name}”的选择题配置不完整。");
         }
 
+        int jobLevel = job.currentLevel;
+        if (_allJobs.TryGetValue(job.name, out JobData originalJob))
+            jobLevel = originalJob.currentLevel;
+
         for (int executionIndex = 0; executionIndex < executionCount; executionIndex++)
         {
+            if (UnityEngine.Random.value >= WorkChoiceTriggerProbability)
+            {
+                Debug.Log($"[JobManager] {job.name} 第 {executionIndex + 1} 个完成时段未触发打工选择题。");
+                continue;
+            }
+
             _pendingJobChoices.Enqueue(new PendingJobChoice
             {
                 jobName = job.name,
-                choice = job.workChoice
+                choice = job.workChoice,
+                jobLevel = jobLevel
             });
         }
     }
@@ -1227,23 +1338,91 @@ public class JobManager : MonoBehaviour
 
     private void ShowNextJobChoice()
     {
+        ShowJobChoice(_pendingJobChoices.Dequeue());
+    }
+
+    private bool TryShowNextJobChoiceForJob(string jobName)
+    {
+        int pendingChoiceCount = _pendingJobChoices.Count;
+
+        for (int i = 0; i < pendingChoiceCount; i++)
+        {
+            PendingJobChoice pendingChoice = _pendingJobChoices.Dequeue();
+            if (pendingChoice.jobName == jobName)
+            {
+                _isWaitingForActiveJobChoice = true;
+                ShowJobChoice(pendingChoice);
+                return true;
+            }
+
+            _pendingJobChoices.Enqueue(pendingChoice);
+        }
+
+        return false;
+    }
+
+    private void ShowJobChoice(PendingJobChoice pendingChoice)
+    {
         if (confirmDialogPanel == null || confirmDialogText == null || confirmYesBtn == null || confirmNoBtn == null)
         {
             throw new System.InvalidOperationException("打工选择题需要完整的确认弹窗引用。");
         }
 
-        _activeJobChoice = _pendingJobChoices.Dequeue();
+        _activeJobChoice = pendingChoice;
         _confirmDialogMode = ConfirmDialogMode.JobChoice;
-        ConfigureChoiceButtonVisuals(_activeJobChoice.choice.compromiseText, _activeJobChoice.choice.assertiveText);
+        bool showThirdChoice = IsThirdChoiceAvailable(_activeJobChoice.choice, _activeJobChoice.jobLevel);
+        ConfigureChoiceButtonVisuals(
+            _activeJobChoice.choice.compromiseText,
+            _activeJobChoice.choice.assertiveText,
+            showThirdChoice,
+            _activeJobChoice.choice.thirdText);
         confirmDialogText.text = $"{_activeJobChoice.jobName}\n{_activeJobChoice.choice.prompt}";
         confirmDialogPanel.SetActive(true);
     }
 
-    private void ResolveActiveJobChoice(bool choseCompromise)
+    private bool IsThirdChoiceAvailable(JobWorkChoice choice, int jobLevel)
+    {
+        if (string.IsNullOrWhiteSpace(choice.thirdText))
+            return false;
+
+        if (choice.thirdRequiredLevel != 1 && choice.thirdRequiredLevel != 2)
+        {
+            throw new System.InvalidOperationException(
+                $"打工“{_activeJobChoice.jobName}”的第三个选择项熟练度条件必须为熟手或老手。");
+        }
+
+        return jobLevel >= choice.thirdRequiredLevel;
+    }
+
+    private void ResolveActiveJobChoice(JobChoiceOption selectedOption)
     {
         JobWorkChoice choice = _activeJobChoice.choice;
-        int cashDelta = choseCompromise ? choice.compromiseCashDelta : choice.assertiveCashDelta;
-        int backboneDelta = choseCompromise ? choice.compromiseBackboneDelta : choice.assertiveBackboneDelta;
+        int cashDelta;
+        int backboneDelta;
+
+        switch (selectedOption)
+        {
+            case JobChoiceOption.Compromise:
+                cashDelta = choice.compromiseCashDelta;
+                backboneDelta = choice.compromiseBackboneDelta;
+                break;
+            case JobChoiceOption.Assertive:
+                cashDelta = choice.assertiveCashDelta;
+                backboneDelta = choice.assertiveBackboneDelta;
+                break;
+            case JobChoiceOption.Third:
+                if (!IsThirdChoiceAvailable(choice, _activeJobChoice.jobLevel))
+                {
+                    throw new System.InvalidOperationException(
+                        $"打工“{_activeJobChoice.jobName}”当前熟练度不满足第三个选择项的显示条件。");
+                }
+
+                cashDelta = choice.thirdCashDelta;
+                backboneDelta = choice.thirdBackboneDelta;
+                break;
+            default:
+                throw new System.ArgumentOutOfRangeException(nameof(selectedOption), selectedOption, null);
+        }
 
         checked
         {
@@ -1253,6 +1432,13 @@ public class JobManager : MonoBehaviour
 
         Debug.Log($"[JobManager] {_activeJobChoice.jobName} 打工选择结算待处理：现金 {cashDelta:+#;-#;0}，骨气 {backboneDelta:+#;-#;0}");
         confirmDialogPanel.SetActive(false);
+
+        if (_isWaitingForActiveJobChoice)
+        {
+            _isWaitingForActiveJobChoice = false;
+            return;
+        }
+
         CompleteWorkSettlement();
     }
 
@@ -1336,6 +1522,7 @@ public class JobManager : MonoBehaviour
 
                 CGInfo cgInfo = new CGInfo {
                     imageName = job.imageName,
+                    jobName = job.name,
                     npcName = job.npcName,
                     isCharJob = job.ischar,
                     randomIndex = luckIndex // 使用正确的运势索引
@@ -1356,6 +1543,7 @@ public class JobManager : MonoBehaviour
 
                     actCG.Add(new CGInfo {
                         imageName = lyingFlatJob.imageName,
+                        jobName = lyingFlatJob.name,
                         npcName = lyingFlatJob.npcName,
                         isCharJob = lyingFlatJob.ischar,
                         randomIndex = luckIndex
@@ -1374,6 +1562,7 @@ public class JobManager : MonoBehaviour
 
                     actCG.Add(new CGInfo {
                         imageName = baseCG.imageName,
+                        jobName = baseCG.jobName,
                         npcName = baseCG.npcName,
                         isCharJob = baseCG.isCharJob,
                         randomIndex = luckIndex
@@ -1395,6 +1584,7 @@ public class JobManager : MonoBehaviour
                     
                     actCG.Add(new CGInfo {
                         imageName = job.imageName,
+                        jobName = job.name,
                         npcName = job.npcName,
                         isCharJob = true,
                         randomIndex = luckIndex
@@ -1412,6 +1602,7 @@ public class JobManager : MonoBehaviour
                     
                     actCG.Add(new CGInfo {
                         imageName = lyingFlatJob.imageName,
+                        jobName = lyingFlatJob.name,
                         npcName = lyingFlatJob.npcName,
                         isCharJob = lyingFlatJob.ischar,
                         randomIndex = luckIndex
@@ -1430,6 +1621,7 @@ public class JobManager : MonoBehaviour
 
                 actCG.Add(new CGInfo {
                     imageName = lyingFlatJob.imageName,
+                    jobName = lyingFlatJob.name,
                     npcName = lyingFlatJob.npcName,
                     isCharJob = lyingFlatJob.ischar,
                     randomIndex = luckIndex
@@ -1747,6 +1939,16 @@ public class JobManager : MonoBehaviour
 
                 // 使用修正后的randomIndex，确保心得显示与CG一致
                 ShowReflectionText(cgInfo.imageName, randomIndex);
+
+                while (TryShowNextJobChoiceForJob(cgInfo.jobName))
+                {
+                    yield return new WaitUntil(() => !_isWaitingForActiveJobChoice);
+                }
+
+                if (_skipCGRequested)
+                {
+                    break;
+                }
 
                 yield return StartCoroutine(AdvanceProgressBarCoroutine(cgIndex, stepCount, cgInfo.imageName, randomIndex, false));
 
@@ -2122,13 +2324,14 @@ public class JobManager : MonoBehaviour
             if (slotIndex < actjobs.Length)
             {
                 var job = actjobs[slotIndex];
-                if (job != null && job.isEmpty)
+                if (job != null && !job.isEmpty && job.name != "躺平")
                 {
-                    return true;
+                    return false;
                 }
             }
         }
-        return false;
+
+        return true;
     }
 
     /// <summary>

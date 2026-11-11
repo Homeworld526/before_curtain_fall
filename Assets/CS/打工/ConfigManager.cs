@@ -8,6 +8,7 @@ public class ConfigManager : MonoBehaviour
     private const string NormalJobsResourcePath = "SchemaTable/Configs/NormalJobs";
     private const string CharacterJobsResourcePath = "SchemaTable/Configs/CharacterJobs";
     private const int NormalJobWorkChoiceColumnCount = 23;
+    private const int NormalJobThirdChoiceColumnCount = 27;
 
     public static ConfigManager Instance { get; private set; }
 
@@ -158,6 +159,39 @@ public class ConfigManager : MonoBehaviour
                             throw new InvalidDataException(
                                 $"[LoadCsv] {resourceName} 第 {i} 行的打工选择题缺少任一选项文本。");
                         }
+
+                        bool hasThirdChoicePayload = false;
+                        for (int thirdChoiceColumn = NormalJobWorkChoiceColumnCount; thirdChoiceColumn < cols.Length; thirdChoiceColumn++)
+                        {
+                            if (!string.IsNullOrWhiteSpace(cols[thirdChoiceColumn]))
+                            {
+                                hasThirdChoicePayload = true;
+                                break;
+                            }
+                        }
+
+                        if (hasThirdChoicePayload && cols.Length < NormalJobThirdChoiceColumnCount)
+                        {
+                            throw new InvalidDataException(
+                                $"[LoadCsv] {resourceName} 第 {i} 行配置了第三个打工选项，但只有 {cols.Length} 列；需要 {NormalJobThirdChoiceColumnCount} 列。");
+                        }
+
+                        if (hasThirdChoicePayload)
+                        {
+                            if (string.IsNullOrWhiteSpace(cols[23])
+                                || string.IsNullOrWhiteSpace(cols[24])
+                                || string.IsNullOrWhiteSpace(cols[25])
+                                || string.IsNullOrWhiteSpace(cols[26]))
+                            {
+                                throw new InvalidDataException(
+                                    $"[LoadCsv] {resourceName} 第 {i} 行的第三个打工选项必须同时填写文本、现金、骨气和熟练度条件。");
+                            }
+
+                            job.workChoice.thirdText = cols[23].Trim();
+                            job.workChoice.thirdCashDelta = int.Parse(cols[24]);
+                            job.workChoice.thirdBackboneDelta = int.Parse(cols[25]);
+                            job.workChoice.thirdRequiredLevel = ParseThirdChoiceRequiredLevel(cols[26], resourceName, i);
+                        }
                     }
                 }
             }
@@ -200,6 +234,17 @@ public class ConfigManager : MonoBehaviour
             
             Debug.Log($"[LoadCsv] 加载打工: {job.name}, 解锁关键词: {job.unlockDialogKeyword}");
         }
+    }
+
+    private int ParseThirdChoiceRequiredLevel(string value, string resourceName, int rowIndex)
+    {
+        return value.Trim() switch
+        {
+            "熟手" => 1,
+            "老手" => 2,
+            _ => throw new InvalidDataException(
+                $"[LoadCsv] {resourceName} 第 {rowIndex} 行第三个打工选项的熟练度条件必须为“熟手”或“老手”，实际为“{value}”。")
+        };
     }
 
     TimeType ParseTimeType(string str, bool isChar)

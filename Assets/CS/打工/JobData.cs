@@ -36,6 +36,10 @@ namespace GameSystem
         public string assertiveText;
         public int assertiveCashDelta;
         public int assertiveBackboneDelta;
+        public string thirdText;
+        public int thirdCashDelta;
+        public int thirdBackboneDelta;
+        public int thirdRequiredLevel;
     }
 
     [Serializable]
