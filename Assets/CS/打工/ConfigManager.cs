@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using UnityEngine;
 using GameSystem;
 
@@ -7,13 +8,16 @@ public class ConfigManager : MonoBehaviour
 {
     private const string NormalJobsResourcePath = "SchemaTable/Configs/NormalJobs";
     private const string CharacterJobsResourcePath = "SchemaTable/Configs/CharacterJobs";
-    private const int NormalJobWorkChoiceColumnCount = 23;
-    private const int NormalJobThirdChoiceColumnCount = 27;
+    private const string WorkEventsResourcePath = "SchemaTable/Configs/WorkEvents";
+    private const int WorkEventColumnCount = 15;
+    private static readonly UTF8Encoding StrictUtf8 = new UTF8Encoding(false, true);
+    private static readonly Encoding Gb18030 = Encoding.GetEncoding(936);
 
     public static ConfigManager Instance { get; private set; }
 
     public List<JobData> normalJobs = new List<JobData>();
     public List<JobData> characterJobs = new List<JobData>();
+    public Dictionary<string, WorkEventData> workEvents = new Dictionary<string, WorkEventData>();
 
     private void Awake()
     {
@@ -37,6 +41,10 @@ public class ConfigManager : MonoBehaviour
         // 清空现有列表，避免重复加载
         normalJobs.Clear();
         characterJobs.Clear();
+        workEvents.Clear();
+
+        LoadWorkEvents();
+        Debug.Log($"打工事件加载完成: {workEvents.Count}个");
         
         LoadCsv(NormalJobsResourcePath, normalJobs, false);
         Debug.Log($"普通工作加载完成: {normalJobs.Count}个");
@@ -56,7 +64,7 @@ public class ConfigManager : MonoBehaviour
             return;
         }
 
-        string[] lines = text.text.Split('\n');
+        string[] lines = DecodeCsvText(text).Split('\n');
         Debug.Log($"[LoadCsv] {resourceName} 共有 {lines.Length} 行");
         
         if (lines.Length < 2) 
@@ -110,90 +118,15 @@ public class ConfigManager : MonoBehaviour
                 colIndex++; // 跳过备注列
                 
                 // 加载剧情解锁关键词 (第16列，索引15)
-                if (cols.Length > 15 && !string.IsNullOrEmpty(cols[15]))
+                if (cols.Length > colIndex && !string.IsNullOrEmpty(cols[colIndex]))
                 {
-                    job.unlockDialogKeyword = cols[15].Trim();
+                    job.unlockDialogKeyword = cols[colIndex].Trim();
                 }
+                colIndex++;
 
-                if (cols.Length > 16)
-                {
-                    bool hasQuestion = !string.IsNullOrWhiteSpace(cols[16]);
-                    bool hasChoicePayload = false;
-                    for (int questionColumn = 17; questionColumn < cols.Length; questionColumn++)
-                    {
-                        if (!string.IsNullOrWhiteSpace(cols[questionColumn]))
-                        {
-                            hasChoicePayload = true;
-                            break;
-                        }
-                    }
-
-                    if (!hasQuestion && hasChoicePayload)
-                    {
-                        throw new InvalidDataException(
-                            $"[LoadCsv] {resourceName} 第 {i} 行填写了打工选择效果，但未填写题目。");
-                    }
-
-                    if (hasQuestion && cols.Length < NormalJobWorkChoiceColumnCount)
-                    {
-                        throw new InvalidDataException(
-                            $"[LoadCsv] {resourceName} 第 {i} 行配置了打工选择题，但只有 {cols.Length} 列；需要 {NormalJobWorkChoiceColumnCount} 列。");
-                    }
-
-                    if (hasQuestion)
-                    {
-                        job.workChoice = new JobWorkChoice
-                        {
-                            prompt = cols[16].Trim(),
-                            compromiseText = cols[17].Trim(),
-                            compromiseCashDelta = int.Parse(cols[18]),
-                            compromiseBackboneDelta = int.Parse(cols[19]),
-                            assertiveText = cols[20].Trim(),
-                            assertiveCashDelta = int.Parse(cols[21]),
-                            assertiveBackboneDelta = int.Parse(cols[22])
-                        };
-
-                        if (string.IsNullOrWhiteSpace(job.workChoice.compromiseText)
-                            || string.IsNullOrWhiteSpace(job.workChoice.assertiveText))
-                        {
-                            throw new InvalidDataException(
-                                $"[LoadCsv] {resourceName} 第 {i} 行的打工选择题缺少任一选项文本。");
-                        }
-
-                        bool hasThirdChoicePayload = false;
-                        for (int thirdChoiceColumn = NormalJobWorkChoiceColumnCount; thirdChoiceColumn < cols.Length; thirdChoiceColumn++)
-                        {
-                            if (!string.IsNullOrWhiteSpace(cols[thirdChoiceColumn]))
-                            {
-                                hasThirdChoicePayload = true;
-                                break;
-                            }
-                        }
-
-                        if (hasThirdChoicePayload && cols.Length < NormalJobThirdChoiceColumnCount)
-                        {
-                            throw new InvalidDataException(
-                                $"[LoadCsv] {resourceName} 第 {i} 行配置了第三个打工选项，但只有 {cols.Length} 列；需要 {NormalJobThirdChoiceColumnCount} 列。");
-                        }
-
-                        if (hasThirdChoicePayload)
-                        {
-                            if (string.IsNullOrWhiteSpace(cols[23])
-                                || string.IsNullOrWhiteSpace(cols[24])
-                                || string.IsNullOrWhiteSpace(cols[25])
-                                || string.IsNullOrWhiteSpace(cols[26]))
-                            {
-                                throw new InvalidDataException(
-                                    $"[LoadCsv] {resourceName} 第 {i} 行的第三个打工选项必须同时填写文本、现金、骨气和熟练度条件。");
-                            }
-
-                            job.workChoice.thirdText = cols[23].Trim();
-                            job.workChoice.thirdCashDelta = int.Parse(cols[24]);
-                            job.workChoice.thirdBackboneDelta = int.Parse(cols[25]);
-                            job.workChoice.thirdRequiredLevel = ParseThirdChoiceRequiredLevel(cols[26], resourceName, i);
-                        }
-                    }
-                }
+                job.workEventIds = cols.Length > colIndex
+                    ? ParseWorkEventIds(cols[colIndex], resourceName, i)
+                    : new string[0];
             }
             else
             {
@@ -233,6 +166,129 @@ public class ConfigManager : MonoBehaviour
             list.Add(job);
             
             Debug.Log($"[LoadCsv] 加载打工: {job.name}, 解锁关键词: {job.unlockDialogKeyword}");
+        }
+    }
+
+    private void LoadWorkEvents()
+    {
+        TextAsset text = Resources.Load<TextAsset>(WorkEventsResourcePath);
+        if (text == null)
+            throw new FileNotFoundException($"未找到打工事件配置: {WorkEventsResourcePath}");
+
+        string[] lines = DecodeCsvText(text).Split('\n');
+        if (lines.Length < 2)
+        {
+            throw new InvalidDataException($"[LoadWorkEvents] {WorkEventsResourcePath} 至少需要表头和一条事件配置。");
+        }
+
+        for (int i = 1; i < lines.Length; i++)
+        {
+            if (string.IsNullOrWhiteSpace(lines[i]))
+                continue;
+
+            string[] cols = lines[i].Replace("\r", "").Split(',');
+            if (cols.Length < WorkEventColumnCount)
+            {
+                throw new InvalidDataException(
+                    $"[LoadWorkEvents] {WorkEventsResourcePath} 第 {i} 行列数不足，需要 {WorkEventColumnCount} 列，实际 {cols.Length} 列。");
+            }
+
+            WorkEventData workEvent = new WorkEventData
+            {
+                id = cols[0].Trim(),
+                description = cols[1].Trim(),
+                thirdOptionRequiredLevel = ParseThirdChoiceRequiredLevel(cols[2], WorkEventsResourcePath, i),
+                option1 = CreateWorkEventOption(cols, 3, WorkEventsResourcePath, i, 1),
+                option2 = CreateWorkEventOption(cols, 7, WorkEventsResourcePath, i, 2),
+                option3 = CreateWorkEventOption(cols, 11, WorkEventsResourcePath, i, 3)
+            };
+
+            if (string.IsNullOrWhiteSpace(workEvent.id) || string.IsNullOrWhiteSpace(workEvent.description))
+            {
+                throw new InvalidDataException(
+                    $"[LoadWorkEvents] {WorkEventsResourcePath} 第 {i} 行缺少事件 ID 或事件描述。");
+            }
+
+            if (workEvents.ContainsKey(workEvent.id))
+            {
+                throw new InvalidDataException(
+                    $"[LoadWorkEvents] {WorkEventsResourcePath} 第 {i} 行的事件 ID “{workEvent.id}”重复。");
+            }
+
+            workEvents.Add(workEvent.id, workEvent);
+        }
+    }
+
+    private static WorkEventOption CreateWorkEventOption(
+        string[] cols,
+        int startIndex,
+        string resourceName,
+        int rowIndex,
+        int optionIndex)
+    {
+        WorkEventOption option = new WorkEventOption
+        {
+            text = cols[startIndex].Trim(),
+            cashDelta = int.Parse(cols[startIndex + 1]),
+            backboneDelta = int.Parse(cols[startIndex + 2]),
+            resultDescription = cols[startIndex + 3].Trim()
+        };
+
+        if (string.IsNullOrWhiteSpace(option.text) || string.IsNullOrWhiteSpace(option.resultDescription))
+        {
+            throw new InvalidDataException(
+                $"[LoadWorkEvents] {resourceName} 第 {rowIndex} 行的选项 {optionIndex} 缺少文本或结果说明。");
+        }
+
+        return option;
+    }
+
+    private string[] ParseWorkEventIds(string value, string resourceName, int rowIndex)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return new string[0];
+
+        string[] rawIds = value.Split(new[] { '|', ';', '、' }, System.StringSplitOptions.RemoveEmptyEntries);
+        List<string> ids = new List<string>();
+        HashSet<string> uniqueIds = new HashSet<string>();
+        foreach (string rawId in rawIds)
+        {
+            string eventId = rawId.Trim();
+            if (!uniqueIds.Add(eventId))
+            {
+                throw new InvalidDataException(
+                    $"[LoadCsv] {resourceName} 第 {rowIndex} 行的打工事件 ID 组包含重复 ID “{eventId}”。");
+            }
+
+            if (!workEvents.ContainsKey(eventId))
+            {
+                throw new InvalidDataException(
+                    $"[LoadCsv] {resourceName} 第 {rowIndex} 行引用了不存在的打工事件 ID “{eventId}”。");
+            }
+
+            ids.Add(eventId);
+        }
+
+        return ids.ToArray();
+    }
+
+    public WorkEventData GetWorkEvent(string eventId)
+    {
+        if (!workEvents.TryGetValue(eventId, out WorkEventData workEvent))
+            throw new KeyNotFoundException($"未找到打工事件 ID “{eventId}”。");
+
+        return workEvent;
+    }
+
+    private static string DecodeCsvText(TextAsset text)
+    {
+        try
+        {
+            return StrictUtf8.GetString(text.bytes);
+        }
+        catch (DecoderFallbackException)
+        {
+            return Gb18030.GetString(text.bytes);
         }
     }
 

@@ -9,7 +9,8 @@ using UnityEngine.EventSystems;
 public class JobManager : MonoBehaviour
 {
     private const string WorkCgResourceDirectory = "CG/WorkCG";
-    private const float WorkChoiceTriggerProbability = 0.5f;
+    private const float WorkEventTriggerProbability = 0.5f;
+    private const float WorkEventDialogScale = 2f;
 
     #region 单例
     public static JobManager Instance { get; private set; }
@@ -30,6 +31,9 @@ public class JobManager : MonoBehaviour
         public string npcName;
         public bool isCharJob;
         public int randomIndex; // 随机索引（1-3）
+        public int dayIndex;
+        public int jobInstanceId;
+        public bool triggersChoice;
     }
     public jobLogManager jobLogManager;
     private JobData[] actjobs = new JobData[21]; // 使用固定长度数组，null表示空位
@@ -37,32 +41,34 @@ public class JobManager : MonoBehaviour
     private List<string> performedCharJobs = new List<string>(); // 记录本周执行的角色打工
     private JobData _lyingFlatJob; // 躺平打工数据缓存
 
-    private struct PendingJobChoice
+    private struct PendingWorkEvent
     {
         public string jobName;
-        public JobWorkChoice choice;
+        public int jobInstanceId;
+        public WorkEventData workEvent;
         public int jobLevel;
     }
 
     private enum ConfirmDialogMode
     {
         WorkExecution,
-        JobChoice
+        WorkEventChoice,
+        WorkEventResult
     }
 
-    private enum JobChoiceOption
+    private enum WorkEventOptionIndex
     {
-        Compromise,
-        Assertive,
-        Third
+        Option1,
+        Option2,
+        Option3
     }
 
-    private readonly Queue<PendingJobChoice> _pendingJobChoices = new Queue<PendingJobChoice>();
+    private readonly Queue<PendingWorkEvent> _pendingWorkEvents = new Queue<PendingWorkEvent>();
     private int _pendingBackboneDelta;
     private bool _settlementApplied;
     private ConfirmDialogMode _confirmDialogMode;
-    private PendingJobChoice _activeJobChoice;
-    private bool _isWaitingForActiveJobChoice;
+    private PendingWorkEvent _activeWorkEvent;
+    private bool _isWaitingForActiveWorkEvent;
     
     // 小图片图集缓存（合并两个图集到一个字典）
     private static Dictionary<string, Sprite> _smallSpriteDict;
@@ -194,6 +200,8 @@ public class JobManager : MonoBehaviour
     private Image confirmYesButtonIcon;
     private Image confirmNoButtonIcon;
     private Image confirmThirdButtonIcon;
+    private Button confirmDialogDismissButton;
+    private readonly Dictionary<Graphic, bool> workEventResultRaycastTargets = new Dictionary<Graphic, bool>();
     private bool hasCachedConfirmationButtonPositions;
     private Vector2 confirmYesButtonOriginalPosition;
     private Vector2 confirmNoButtonOriginalPosition;
@@ -437,6 +445,13 @@ public class JobManager : MonoBehaviour
 
     private void RestoreConfirmationButtonVisuals()
     {
+        DisableWorkEventResultDismissal();
+
+        if (confirmYesBtn != null)
+            confirmYesBtn.gameObject.SetActive(true);
+        if (confirmNoBtn != null)
+            confirmNoBtn.gameObject.SetActive(true);
+
         if (confirmYesButtonText != null)
             confirmYesButtonText.gameObject.SetActive(false);
         if (confirmNoButtonText != null)
@@ -462,6 +477,61 @@ public class JobManager : MonoBehaviour
             if (confirmThirdBtn != null)
                 ((RectTransform)confirmThirdBtn.transform).anchoredPosition = confirmThirdButtonOriginalPosition;
         }
+    }
+
+    private void ConfigureWorkEventResultButton()
+    {
+        RestoreConfirmationButtonVisuals();
+        confirmYesBtn.gameObject.SetActive(false);
+        confirmNoBtn.gameObject.SetActive(false);
+        EnableWorkEventResultDismissal();
+    }
+
+    private void EnableWorkEventResultDismissal()
+    {
+        if (confirmDialogDismissButton == null)
+        {
+            confirmDialogDismissButton = confirmDialogPanel.GetComponent<Button>();
+            if (confirmDialogDismissButton == null)
+            {
+                confirmDialogDismissButton = confirmDialogPanel.AddComponent<Button>();
+                confirmDialogDismissButton.targetGraphic = confirmDialogPanel.GetComponent<Graphic>();
+                confirmDialogDismissButton.transition = Selectable.Transition.None;
+            }
+
+            AddButtonClickEvent(confirmDialogDismissButton, OnWorkEventResultDismissed);
+        }
+
+        workEventResultRaycastTargets.Clear();
+        foreach (Graphic graphic in confirmDialogPanel.GetComponentsInChildren<Graphic>(true))
+        {
+            if (graphic.gameObject == confirmDialogPanel)
+                continue;
+
+            workEventResultRaycastTargets.Add(graphic, graphic.raycastTarget);
+            graphic.raycastTarget = false;
+        }
+
+        confirmDialogDismissButton.enabled = true;
+    }
+
+    private void DisableWorkEventResultDismissal()
+    {
+        if (confirmDialogDismissButton != null)
+            confirmDialogDismissButton.enabled = false;
+
+        foreach (KeyValuePair<Graphic, bool> pair in workEventResultRaycastTargets)
+        {
+            pair.Key.raycastTarget = pair.Value;
+        }
+
+        workEventResultRaycastTargets.Clear();
+    }
+
+    private void OnWorkEventResultDismissed()
+    {
+        if (_confirmDialogMode == ConfirmDialogMode.WorkEventResult)
+            CompleteActiveWorkEventResult();
     }
 
     private void EnsureThirdChoiceButton()
@@ -898,7 +968,7 @@ public class JobManager : MonoBehaviour
             rewards = jobTemplate.rewards,
             unlockWeek = jobTemplate.unlockWeek,
             Backbone = jobTemplate.Backbone,
-            workChoice = jobTemplate.workChoice,
+            workEventIds = jobTemplate.workEventIds,
             imageName = jobTemplate.imageName,
             head = jobTemplate.head,
             BG = jobTemplate.BG,
@@ -1065,6 +1135,8 @@ public class JobManager : MonoBehaviour
             gowork();
             return;
         }
+
+        confirmDialogPanel.transform.localScale = Vector3.one;
         
         bool hasJobs = false;
         foreach (var job in actjobs)
@@ -1086,9 +1158,15 @@ public class JobManager : MonoBehaviour
     
     void OnConfirmYes()
     {
-        if (_confirmDialogMode == ConfirmDialogMode.JobChoice)
+        if (_confirmDialogMode == ConfirmDialogMode.WorkEventChoice)
         {
-            ResolveActiveJobChoice(JobChoiceOption.Compromise);
+            ResolveActiveWorkEvent(WorkEventOptionIndex.Option1);
+            return;
+        }
+
+        if (_confirmDialogMode == ConfirmDialogMode.WorkEventResult)
+        {
+            CompleteActiveWorkEventResult();
             return;
         }
 
@@ -1109,9 +1187,9 @@ public class JobManager : MonoBehaviour
 
     void OnConfirmNo()
     {
-        if (_confirmDialogMode == ConfirmDialogMode.JobChoice)
+        if (_confirmDialogMode == ConfirmDialogMode.WorkEventChoice)
         {
-            ResolveActiveJobChoice(JobChoiceOption.Assertive);
+            ResolveActiveWorkEvent(WorkEventOptionIndex.Option2);
             return;
         }
 
@@ -1125,10 +1203,10 @@ public class JobManager : MonoBehaviour
 
     void OnConfirmThird()
     {
-        if (_confirmDialogMode != ConfirmDialogMode.JobChoice)
-            throw new System.InvalidOperationException("第三个确认按钮只能用于打工选择题。");
+        if (_confirmDialogMode != ConfirmDialogMode.WorkEventChoice)
+            throw new System.InvalidOperationException("第三个确认按钮只能用于打工事件。");
 
-        ResolveActiveJobChoice(JobChoiceOption.Third);
+        ResolveActiveWorkEvent(WorkEventOptionIndex.Option3);
     }
     #endregion
 
@@ -1137,9 +1215,9 @@ public class JobManager : MonoBehaviour
     {
         totalReward = 0;
         _pendingBackboneDelta = 0;
-        _pendingJobChoices.Clear();
+        _pendingWorkEvents.Clear();
         _settlementApplied = false;
-        _isWaitingForActiveJobChoice = false;
+        _isWaitingForActiveWorkEvent = false;
         actCG.Clear();
         levelUpJobs.Clear();
         performedCharJobs.Clear();
@@ -1294,15 +1372,8 @@ public class JobManager : MonoBehaviour
             _pendingBackboneDelta += job.Backbone * executionCount;
         }
 
-        if (job.workChoice == null)
+        if (job.workEventIds == null || job.workEventIds.Length == 0)
             return;
-
-        if (string.IsNullOrWhiteSpace(job.workChoice.prompt)
-            || string.IsNullOrWhiteSpace(job.workChoice.compromiseText)
-            || string.IsNullOrWhiteSpace(job.workChoice.assertiveText))
-        {
-            throw new System.InvalidOperationException($"打工“{job.name}”的选择题配置不完整。");
-        }
 
         int jobLevel = job.currentLevel;
         if (_allJobs.TryGetValue(job.name, out JobData originalJob))
@@ -1310,16 +1381,21 @@ public class JobManager : MonoBehaviour
 
         for (int executionIndex = 0; executionIndex < executionCount; executionIndex++)
         {
-            if (UnityEngine.Random.value >= WorkChoiceTriggerProbability)
+            if (UnityEngine.Random.value >= WorkEventTriggerProbability)
             {
-                Debug.Log($"[JobManager] {job.name} 第 {executionIndex + 1} 个完成时段未触发打工选择题。");
+                Debug.Log($"[JobManager] {job.name} 第 {executionIndex + 1} 个完成时段未触发打工事件。");
                 continue;
             }
 
-            _pendingJobChoices.Enqueue(new PendingJobChoice
+            int eventIndex = UnityEngine.Random.Range(0, job.workEventIds.Length);
+            string eventId = job.workEventIds[eventIndex];
+            WorkEventData workEvent = ConfigManager.Instance.GetWorkEvent(eventId);
+
+            _pendingWorkEvents.Enqueue(new PendingWorkEvent
             {
                 jobName = job.name,
-                choice = job.workChoice,
+                jobInstanceId = job.instanceId,
+                workEvent = workEvent,
                 jobLevel = jobLevel
             });
         }
@@ -1327,98 +1403,91 @@ public class JobManager : MonoBehaviour
 
     private void CompleteWorkSettlement()
     {
-        if (_pendingJobChoices.Count > 0)
+        if (_pendingWorkEvents.Count > 0)
         {
-            ShowNextJobChoice();
+            ShowNextWorkEvent();
             return;
         }
 
         FinishWork();
     }
 
-    private void ShowNextJobChoice()
+    private void ShowNextWorkEvent()
     {
-        ShowJobChoice(_pendingJobChoices.Dequeue());
+        ShowWorkEvent(_pendingWorkEvents.Dequeue());
     }
 
-    private bool TryShowNextJobChoiceForJob(string jobName)
+    private bool TryShowNextWorkEventForJob(int jobInstanceId)
     {
-        int pendingChoiceCount = _pendingJobChoices.Count;
+        int pendingEventCount = _pendingWorkEvents.Count;
 
-        for (int i = 0; i < pendingChoiceCount; i++)
+        for (int i = 0; i < pendingEventCount; i++)
         {
-            PendingJobChoice pendingChoice = _pendingJobChoices.Dequeue();
-            if (pendingChoice.jobName == jobName)
+            PendingWorkEvent pendingWorkEvent = _pendingWorkEvents.Dequeue();
+            if (pendingWorkEvent.jobInstanceId == jobInstanceId)
             {
-                _isWaitingForActiveJobChoice = true;
-                ShowJobChoice(pendingChoice);
+                _isWaitingForActiveWorkEvent = true;
+                ShowWorkEvent(pendingWorkEvent);
                 return true;
             }
 
-            _pendingJobChoices.Enqueue(pendingChoice);
+            _pendingWorkEvents.Enqueue(pendingWorkEvent);
         }
 
         return false;
     }
 
-    private void ShowJobChoice(PendingJobChoice pendingChoice)
+    private void ShowWorkEvent(PendingWorkEvent pendingWorkEvent)
     {
         if (confirmDialogPanel == null || confirmDialogText == null || confirmYesBtn == null || confirmNoBtn == null)
         {
-            throw new System.InvalidOperationException("打工选择题需要完整的确认弹窗引用。");
+            throw new System.InvalidOperationException("打工事件需要完整的确认弹窗引用。");
         }
 
-        _activeJobChoice = pendingChoice;
-        _confirmDialogMode = ConfirmDialogMode.JobChoice;
-        bool showThirdChoice = IsThirdChoiceAvailable(_activeJobChoice.choice, _activeJobChoice.jobLevel);
+        _activeWorkEvent = pendingWorkEvent;
+        _confirmDialogMode = ConfirmDialogMode.WorkEventChoice;
+        bool showThirdChoice = IsThirdOptionAvailable(_activeWorkEvent.workEvent, _activeWorkEvent.jobLevel);
         ConfigureChoiceButtonVisuals(
-            _activeJobChoice.choice.compromiseText,
-            _activeJobChoice.choice.assertiveText,
+            _activeWorkEvent.workEvent.option1.text,
+            _activeWorkEvent.workEvent.option2.text,
             showThirdChoice,
-            _activeJobChoice.choice.thirdText);
-        confirmDialogText.text = $"{_activeJobChoice.jobName}\n{_activeJobChoice.choice.prompt}";
+            _activeWorkEvent.workEvent.option3.text);
+        confirmDialogText.text = _activeWorkEvent.workEvent.description;
+        confirmDialogPanel.transform.localScale = Vector3.one * WorkEventDialogScale;
         confirmDialogPanel.SetActive(true);
     }
 
-    private bool IsThirdChoiceAvailable(JobWorkChoice choice, int jobLevel)
+    private bool IsThirdOptionAvailable(WorkEventData workEvent, int jobLevel)
     {
-        if (string.IsNullOrWhiteSpace(choice.thirdText))
-            return false;
-
-        if (choice.thirdRequiredLevel != 1 && choice.thirdRequiredLevel != 2)
+        if (workEvent.thirdOptionRequiredLevel != 1 && workEvent.thirdOptionRequiredLevel != 2)
         {
             throw new System.InvalidOperationException(
-                $"打工“{_activeJobChoice.jobName}”的第三个选择项熟练度条件必须为熟手或老手。");
+                $"打工事件“{workEvent.id}”的第三个选择项熟练度条件必须为熟手或老手。");
         }
 
-        return jobLevel >= choice.thirdRequiredLevel;
+        return jobLevel >= workEvent.thirdOptionRequiredLevel;
     }
 
-    private void ResolveActiveJobChoice(JobChoiceOption selectedOption)
+    private void ResolveActiveWorkEvent(WorkEventOptionIndex selectedOption)
     {
-        JobWorkChoice choice = _activeJobChoice.choice;
-        int cashDelta;
-        int backboneDelta;
+        WorkEventOption option;
 
         switch (selectedOption)
         {
-            case JobChoiceOption.Compromise:
-                cashDelta = choice.compromiseCashDelta;
-                backboneDelta = choice.compromiseBackboneDelta;
+            case WorkEventOptionIndex.Option1:
+                option = _activeWorkEvent.workEvent.option1;
                 break;
-            case JobChoiceOption.Assertive:
-                cashDelta = choice.assertiveCashDelta;
-                backboneDelta = choice.assertiveBackboneDelta;
+            case WorkEventOptionIndex.Option2:
+                option = _activeWorkEvent.workEvent.option2;
                 break;
-            case JobChoiceOption.Third:
-                if (!IsThirdChoiceAvailable(choice, _activeJobChoice.jobLevel))
+            case WorkEventOptionIndex.Option3:
+                if (!IsThirdOptionAvailable(_activeWorkEvent.workEvent, _activeWorkEvent.jobLevel))
                 {
                     throw new System.InvalidOperationException(
-                        $"打工“{_activeJobChoice.jobName}”当前熟练度不满足第三个选择项的显示条件。");
+                        $"打工“{_activeWorkEvent.jobName}”当前熟练度不满足第三个选择项的显示条件。");
                 }
 
-                cashDelta = choice.thirdCashDelta;
-                backboneDelta = choice.thirdBackboneDelta;
+                option = _activeWorkEvent.workEvent.option3;
                 break;
             default:
                 throw new System.ArgumentOutOfRangeException(nameof(selectedOption), selectedOption, null);
@@ -1426,16 +1495,33 @@ public class JobManager : MonoBehaviour
 
         checked
         {
-            totalReward += cashDelta;
-            _pendingBackboneDelta += backboneDelta;
+            totalReward += option.cashDelta;
+            _pendingBackboneDelta += option.backboneDelta;
         }
 
-        Debug.Log($"[JobManager] {_activeJobChoice.jobName} 打工选择结算待处理：现金 {cashDelta:+#;-#;0}，骨气 {backboneDelta:+#;-#;0}");
-        confirmDialogPanel.SetActive(false);
+        Debug.Log($"[JobManager] {_activeWorkEvent.jobName} 打工事件“{_activeWorkEvent.workEvent.id}”结算待处理：现金 {option.cashDelta:+#;-#;0}，骨气 {option.backboneDelta:+#;-#;0}");
+        ShowWorkEventResult(option);
+    }
 
-        if (_isWaitingForActiveJobChoice)
+    private void ShowWorkEventResult(WorkEventOption option)
+    {
+        _confirmDialogMode = ConfirmDialogMode.WorkEventResult;
+        ConfigureWorkEventResultButton();
+        confirmDialogText.text =
+            $"{option.resultDescription}\n\n现金 {option.cashDelta:+#;-#;0}\n骨气 {option.backboneDelta:+#;-#;0}";
+        confirmDialogPanel.transform.localScale = Vector3.one * WorkEventDialogScale;
+        confirmDialogPanel.SetActive(true);
+    }
+
+    private void CompleteActiveWorkEventResult()
+    {
+        confirmDialogPanel.SetActive(false);
+        RestoreConfirmationButtonVisuals();
+        _confirmDialogMode = ConfirmDialogMode.WorkExecution;
+
+        if (_isWaitingForActiveWorkEvent)
         {
-            _isWaitingForActiveJobChoice = false;
+            _isWaitingForActiveWorkEvent = false;
             return;
         }
 
@@ -1483,148 +1569,33 @@ public class JobManager : MonoBehaviour
 
     private void SelectCGsByDayRange()
     {
-        HashSet<string> selectedJobKeys = new HashSet<string>();
-        
-        List<JobData> allNormalJobs = new List<JobData>();
-        List<JobData> lyingFlatJobs = new List<JobData>();
-        HashSet<int> addedInstanceIds = new HashSet<int>();
-        
-        for (int i = 0; i < actjobs.Length; i++)
+        int luckIndex = GetLuckIndex();
+        HashSet<int> triggeredJobInstances = new HashSet<int>();
+
+        for (int dayIndex = 0; dayIndex < 7; dayIndex++)
         {
-            var job = actjobs[i];
-            if (job != null && !job.isEmpty && !job.ischar && !addedInstanceIds.Contains(job.instanceId))
+            HashSet<int> addedJobInstances = new HashSet<int>();
+            int firstSlot = dayIndex * 3;
+
+            for (int slotOffset = 0; slotOffset < 3; slotOffset++)
             {
-                if (!string.IsNullOrEmpty(job.imageName))
+                JobData job = actjobs[firstSlot + slotOffset];
+                if (job == null || job.isEmpty || job.ischar || job.name == "躺平"
+                    || string.IsNullOrEmpty(job.imageName) || !addedJobInstances.Add(job.instanceId))
                 {
-                    if (job.name == "躺平")
-                    {
-                        lyingFlatJobs.Add(job);
-                    }
-                    else if (!selectedJobKeys.Contains(job.name))
-                    {
-                        allNormalJobs.Add(job);
-                        selectedJobKeys.Add(job.name);
-                    }
-                    addedInstanceIds.Add(job.instanceId);
+                    continue;
                 }
-            }
-        }
-        
-        if (_hasUserSelectedNormalJobs)
-        {
-            int addedCount = 0;
-            List<CGInfo> baseCGs = new List<CGInfo>();
-            int luckIndex = GetLuckIndex(); // 统一获取运势索引
 
-            foreach (var job in allNormalJobs)
-            {
-                if (actCG.Count >= 3) break;
-
-                CGInfo cgInfo = new CGInfo {
+                actCG.Add(new CGInfo
+                {
                     imageName = job.imageName,
                     jobName = job.name,
                     npcName = job.npcName,
-                    isCharJob = job.ischar,
-                    randomIndex = luckIndex // 使用正确的运势索引
-                };
-
-                actCG.Add(cgInfo);
-                baseCGs.Add(cgInfo);
-                addedCount++;
-            }
-
-            // 如果普通打工CG不满3个，用躺平补充
-            if (actCG.Count < 3 && lyingFlatJobs.Count > 0)
-            {
-                while (actCG.Count < 3)
-                {
-                    int randomIndex = Random.Range(0, lyingFlatJobs.Count);
-                    JobData lyingFlatJob = lyingFlatJobs[randomIndex];
-
-                    actCG.Add(new CGInfo {
-                        imageName = lyingFlatJob.imageName,
-                        jobName = lyingFlatJob.name,
-                        npcName = lyingFlatJob.npcName,
-                        isCharJob = lyingFlatJob.ischar,
-                        randomIndex = luckIndex
-                    });
-                }
-            }
-
-            // 如果躺平也没有，用已有的CG重复填充
-            if (actCG.Count < 3 && baseCGs.Count > 0)
-            {
-                int repeatCount = 3 - actCG.Count;
-
-                for (int i = 0; i < repeatCount; i++)
-                {
-                    CGInfo baseCG = baseCGs[i % baseCGs.Count];
-
-                    actCG.Add(new CGInfo {
-                        imageName = baseCG.imageName,
-                        jobName = baseCG.jobName,
-                        npcName = baseCG.npcName,
-                        isCharJob = baseCG.isCharJob,
-                        randomIndex = luckIndex
-                    });
-                }
-            }
-        }
-        else if (_hasUserSelectedJobs)
-        {
-            int luckIndex = GetLuckIndex();
-            
-            HashSet<string> addedCharJobs = new HashSet<string>();
-            for (int i = 0; i < actjobs.Length; i++)
-            {
-                var job = actjobs[i];
-                if (job != null && !job.isEmpty && job.ischar && !string.IsNullOrEmpty(job.npcName) && !addedCharJobs.Contains(job.npcName))
-                {
-                    if (actCG.Count >= 3) break;
-                    
-                    actCG.Add(new CGInfo {
-                        imageName = job.imageName,
-                        jobName = job.name,
-                        npcName = job.npcName,
-                        isCharJob = true,
-                        randomIndex = luckIndex
-                    });
-                    addedCharJobs.Add(job.npcName);
-                }
-            }
-            
-            if (actCG.Count < 3 && lyingFlatJobs.Count > 0)
-            {
-                while (actCG.Count < 3)
-                {
-                    int randomIndex = Random.Range(0, lyingFlatJobs.Count);
-                    JobData lyingFlatJob = lyingFlatJobs[randomIndex];
-                    
-                    actCG.Add(new CGInfo {
-                        imageName = lyingFlatJob.imageName,
-                        jobName = lyingFlatJob.name,
-                        npcName = lyingFlatJob.npcName,
-                        isCharJob = lyingFlatJob.ischar,
-                        randomIndex = luckIndex
-                    });
-                }
-            }
-        }
-        else if (lyingFlatJobs.Count > 0)
-        {
-            int luckIndex = GetLuckIndex();
-
-            while (lyingFlatJobs.Count > 0 && actCG.Count < 3)
-            {
-                int randomJobIndex = Random.Range(0, lyingFlatJobs.Count);
-                JobData lyingFlatJob = lyingFlatJobs[randomJobIndex];
-
-                actCG.Add(new CGInfo {
-                    imageName = lyingFlatJob.imageName,
-                    jobName = lyingFlatJob.name,
-                    npcName = lyingFlatJob.npcName,
-                    isCharJob = lyingFlatJob.ischar,
-                    randomIndex = luckIndex
+                    isCharJob = false,
+                    randomIndex = luckIndex,
+                    dayIndex = dayIndex,
+                    jobInstanceId = job.instanceId,
+                    triggersChoice = triggeredJobInstances.Add(job.instanceId)
                 });
             }
         }
@@ -1901,29 +1872,34 @@ public class JobManager : MonoBehaviour
 
         yield return StartCoroutine(WaitForBlackoutTransition(false));
 
-        int[] progressSteps = { 2, 2, 3 };
         int cgIndex = 0;
 
-        foreach (var cgInfo in actCG)
+        for (int dayIndex = 0; dayIndex < 7; dayIndex++)
+        {
+            bool hasDayCG = false;
+            CGInfo dayCG = default;
+
+            while (cgIndex < actCG.Count && actCG[cgIndex].dayIndex == dayIndex)
             {
-                // 检查是否请求跳过
                 if (_skipCGRequested)
                 {
                     break;
                 }
 
+                CGInfo cgInfo = actCG[cgIndex++];
                 if (string.IsNullOrEmpty(cgInfo.imageName)) continue;
 
-                Sprite s = null;
-                int randomIndex;
-                int stepCount = cgIndex < progressSteps.Length ? progressSteps[cgIndex] : 2;
-
-                // 统一使用运势索引（CG和心得）
-                randomIndex = cgInfo.randomIndex > 0 ? cgInfo.randomIndex : GetLuckIndex();
+                int randomIndex = cgInfo.randomIndex > 0 ? cgInfo.randomIndex : GetLuckIndex();
                 string cgPath = $"{WorkCgResourceDirectory}/打工cg-{cgInfo.imageName}-{randomIndex}";
-                s = Resources.Load<Sprite>(cgPath);
+                Sprite s = Resources.Load<Sprite>(cgPath);
 
                 if (s == null) continue;
+
+                if (!hasDayCG)
+                {
+                    hasDayCG = true;
+                    dayCG = cgInfo;
+                }
 
                 CG.sprite = s;
                 CG.gameObject.SetActive(true);
@@ -1937,12 +1913,11 @@ public class JobManager : MonoBehaviour
                 if (useFadeEffect)
                     yield return FadeIn(CG.gameObject, 0.2f);
 
-                // 使用修正后的randomIndex，确保心得显示与CG一致
-                ShowReflectionText(cgInfo.imageName, randomIndex);
+                yield return StartCoroutine(ShowReflectionText(cgInfo.imageName, randomIndex));
 
-                while (TryShowNextJobChoiceForJob(cgInfo.jobName))
+                while (cgInfo.triggersChoice && TryShowNextWorkEventForJob(cgInfo.jobInstanceId))
                 {
-                    yield return new WaitUntil(() => !_isWaitingForActiveJobChoice);
+                    yield return new WaitUntil(() => !_isWaitingForActiveWorkEvent);
                 }
 
                 if (_skipCGRequested)
@@ -1950,12 +1925,7 @@ public class JobManager : MonoBehaviour
                     break;
                 }
 
-                yield return StartCoroutine(AdvanceProgressBarCoroutine(cgIndex, stepCount, cgInfo.imageName, randomIndex, false));
-
-                // 可中断的等待时间
-                float baseDuration = 3f - 1.5f;
-                float durationMultiplier = (float)stepCount / 2f;
-                float waitTime = baseDuration * durationMultiplier;
+                float waitTime = 1.5f;
                 float elapsed = 0f;
                 while (elapsed < waitTime && !_skipCGRequested)
                 {
@@ -1982,10 +1952,18 @@ public class JobManager : MonoBehaviour
                 
                 if (reflectionText != null)
                     reflectionText.gameObject.SetActive(false);
-
-                cgIndex++;
             }
-            
+
+            if (_skipCGRequested)
+            {
+                break;
+            }
+
+            string dayImageName = hasDayCG ? dayCG.imageName : string.Empty;
+            int dayRandomIndex = hasDayCG ? dayCG.randomIndex : GetLuckIndex();
+            yield return StartCoroutine(AdvanceProgressBarCoroutine(dayIndex, dayImageName, dayRandomIndex));
+        }
+
             if (smallImageAnimCoroutine != null)
             {
                 StopCoroutine(smallImageAnimCoroutine);
@@ -2119,9 +2097,9 @@ public class JobManager : MonoBehaviour
         }
     }
     
-    private void ShowReflectionText(string imageName, int index)
+    private IEnumerator ShowReflectionText(string imageName, int index)
     {
-        if (reflectionText == null) return;
+        if (reflectionText == null) yield break;
         
         JobData job = null;
         
@@ -2149,25 +2127,25 @@ public class JobManager : MonoBehaviour
         if (job == null || job.Refs == null || job.Refs.Length == 0)
         {
             reflectionText.gameObject.SetActive(false);
-            return;
+            yield break;
         }
         
         int refIndex = index - 1;
         if (refIndex < 0 || refIndex >= job.Refs.Length)
         {
             reflectionText.gameObject.SetActive(false);
-            return;
+            yield break;
         }
         
         string reflectionContent = job.Refs[refIndex];
         if (string.IsNullOrEmpty(reflectionContent))
         {
             reflectionText.gameObject.SetActive(false);
-            return;
+            yield break;
         }
         
         reflectionText.gameObject.SetActive(true);
-        StartCoroutine(TypeText(reflectionContent));
+        yield return StartCoroutine(TypeText(reflectionContent));
     }
 
     private IEnumerator TypeText(string text)
@@ -2237,81 +2215,53 @@ public class JobManager : MonoBehaviour
         }
     }
 
-    private IEnumerator AdvanceProgressBarCoroutine(int cgIndex, int stepCount, string imageName, int randomIndex, bool isCharJob)
+    private IEnumerator AdvanceProgressBarCoroutine(int dayIndex, string imageName, int randomIndex)
     {
-        Sprite sprite = null;
-        string cgPath;
-        
-        if (isCharJob)
+        if (dayIndex < 0 || dayIndex >= cgItems.Count)
         {
-            cgPath = $"CG/TheaterCG/小剧场-{imageName}-{randomIndex}";
-            sprite = Resources.Load<Sprite>(cgPath);
-        }
-        else
-        {
-            cgPath = $"{WorkCgResourceDirectory}/打工cg-{imageName}-{randomIndex}";
-            sprite = Resources.Load<Sprite>(cgPath);
+            yield break;
         }
 
-        float totalTime = 1.5f;
-        float timePerCell = totalTime / stepCount;
+        Sprite sprite = string.IsNullOrEmpty(imageName)
+            ? null
+            : Resources.Load<Sprite>($"{WorkCgResourceDirectory}/打工cg-{imageName}-{randomIndex}");
 
-        for (int i = 0; i < stepCount && currentProgress < cgItems.Count; i++)
+        LittleCGItem item = cgItems[dayIndex];
+        if (item != null)
         {
-            var item = cgItems[currentProgress];
-            if (item != null)
+            if (IsDayEmptyJob(dayIndex))
             {
-                bool isEmptyDay = IsDayEmptyJob(currentProgress);
-
-                if (isEmptyDay)
+                EnableNullChildObject(item);
+            }
+            else
+            {
+                string characterName = GetCharacterJobForDay(dayIndex);
+                if (!string.IsNullOrEmpty(characterName))
                 {
-                    EnableNullChildObject(item);
+                    Sprite headSprite = Resources.Load<Sprite>($"UI/WorkIcon/打工cg-{characterName}");
+                    item.SetCharacterHead(headSprite);
                 }
                 else
                 {
-                    // 检查是否为角色打工
-                    string characterName = GetCharacterJobForDay(currentProgress);
-                    Debug.Log($"[JobManager] 进度条格子 {currentProgress}, 角色打工检测: {(string.IsNullOrEmpty(characterName) ? "无" : characterName)}");
-
-                    if (!string.IsNullOrEmpty(characterName))
-                    {
-                        // 角色打工：设置Head头像
-                        string headPath = $"UI/WorkIcon/打工cg-{characterName}";
-                        Sprite headSprite = Resources.Load<Sprite>(headPath);
-                        Debug.Log($"[JobManager] 加载角色头像: {headPath}, 结果: {(headSprite != null ? "成功" : "失败")}");
-                        item.SetCharacterHead(headSprite);
-                        // 注意：角色打工不调用 ShowIcon()，因为 SetCharacterHead 已禁用 iconImage
-
-                        int dayReward = CalculateDayReward(currentProgress);
-                        item.ShowReward(dayReward);
-                    }
-                    else
-                    {
-                        // 普通打工：显示报酬
-                        item.SetIcon(sprite);
-                        item.ShowIcon();
-
-                        int dayReward = CalculateDayReward(currentProgress);
-                        item.ShowReward(dayReward);
-                    }
+                    item.SetIcon(sprite);
+                    item.ShowIcon();
                 }
+
+                item.ShowReward(CalculateDayReward(dayIndex));
             }
-
-            yield return StartCoroutine(MovePlayerToPosition(currentProgress));
-
-            UpdateDecorationColors(currentProgress);
-
-            yield return new WaitForSeconds(timePerCell);
-
-            currentProgress++;
         }
+
+        yield return StartCoroutine(MovePlayerToPosition(dayIndex));
+        UpdateDecorationColors(dayIndex);
+        yield return new WaitForSeconds(0.75f);
+        currentProgress = dayIndex + 1;
         
-        for (int i = 0; i < currentProgress - 1 && i < cgItems.Count; i++)
+        for (int i = 0; i < dayIndex && i < cgItems.Count; i++)
         {
-            var item = cgItems[i];
-            if (item != null)
+            var previousItem = cgItems[i];
+            if (previousItem != null)
             {
-                item.FadeOut(fadedAlpha);
+                previousItem.FadeOut(fadedAlpha);
             }
         }
     }

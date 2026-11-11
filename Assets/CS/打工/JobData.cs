@@ -27,19 +27,23 @@ namespace GameSystem
     }
 
     [Serializable]
-    public class JobWorkChoice
+    public class WorkEventOption
     {
-        public string prompt;
-        public string compromiseText;
-        public int compromiseCashDelta;
-        public int compromiseBackboneDelta;
-        public string assertiveText;
-        public int assertiveCashDelta;
-        public int assertiveBackboneDelta;
-        public string thirdText;
-        public int thirdCashDelta;
-        public int thirdBackboneDelta;
-        public int thirdRequiredLevel;
+        public string text;
+        public int cashDelta;
+        public int backboneDelta;
+        public string resultDescription;
+    }
+
+    [Serializable]
+    public class WorkEventData
+    {
+        public string id;
+        public string description;
+        public int thirdOptionRequiredLevel;
+        public WorkEventOption option1;
+        public WorkEventOption option2;
+        public WorkEventOption option3;
     }
 
     [Serializable]
@@ -60,7 +64,7 @@ namespace GameSystem
         public string unlockCharacterName;  // 关联角色名称
         public int favorIncrement;
         public int Backbone;
-        public JobWorkChoice workChoice;
+        public string[] workEventIds;
         public string imageName;
         public bool isEmpty = false;
         public bool cannotBeRemoved = false; // 是否不能被删除

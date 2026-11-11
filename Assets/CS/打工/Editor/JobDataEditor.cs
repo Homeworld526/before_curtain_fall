@@ -15,8 +15,9 @@ public class JobDataEditor : EditorWindow
         GUILayout.Space(10);
         
         GUILayout.Label("普通打工 (NormalJobs.csv)：");
-        GUILayout.Label("第16列：备注");
-        GUILayout.Label("第17列：unlockDialogKeyword (剧情解锁关键词)");
+        GUILayout.Label("第15列：备注");
+        GUILayout.Label("第16列：unlockDialogKeyword（剧情解锁关键词）");
+        GUILayout.Label("第17列：workEventIds（打工事件 ID 组，使用 | 分隔多个 ID）");
         GUILayout.Space(10);
         
         GUILayout.Label("角色打工 (CharacterJobs.csv)：");
@@ -33,6 +34,12 @@ public class JobDataEditor : EditorWindow
         if (GUILayout.Button("打开 CharacterJobs.csv"))
         {
             string path = "Assets/Resources/SchemaTable/Configs/CharacterJobs.csv";
+            UnityEditorInternal.InternalEditorUtility.OpenFileAtLineExternal(path, 1);
+        }
+
+        if (GUILayout.Button("打开 WorkEvents.csv"))
+        {
+            string path = "Assets/Resources/SchemaTable/Configs/WorkEvents.csv";
             UnityEditorInternal.InternalEditorUtility.OpenFileAtLineExternal(path, 1);
         }
         

@@ -1470,7 +1470,7 @@ public class SaveSystem : SingleCase<SaveSystem>
                         rewards = original.rewards,
                         unlockWeek = original.unlockWeek,
                         Backbone = original.Backbone,
-                        workChoice = original.workChoice,
+                        workEventIds = original.workEventIds,
                         imageName = original.imageName,
                         head = original.head,
                         BG = original.BG,
@@ -1494,7 +1494,7 @@ public class SaveSystem : SingleCase<SaveSystem>
                         rewards = original.rewards,
                         unlockWeek = original.unlockWeek,
                         Backbone = original.Backbone,
-                        workChoice = original.workChoice,
+                        workEventIds = original.workEventIds,
                         imageName = original.imageName,
                         Refs = original.Refs,
                         Description = original.Description
