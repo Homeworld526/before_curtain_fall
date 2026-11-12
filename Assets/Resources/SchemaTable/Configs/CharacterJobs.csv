@@ -1,4 +1,4 @@
-jobName,apCost,timeLimit,CD,rewardLv1,rewardLv2,rewardLv3,rewardLv4,unlockTime,chapter,CG,favorIncrement,å¤´åƒå,èƒŒæ™¯è‰²,èƒŒæ™¯è‰²2,è£…é¥°é¢œè‰²,è§’è‰²å,å¤‡æ³¨,unlockDialogKeyword
-å¸®å¼ æµ·å¿ƒå¡«è¯,3,CharOnly,0,200,800,2800,7200,1,1,zhanghaixing,3,Qå¤´-å¼ æµ·å¿ƒ,698BDC,BCC1DE,213376,å¼ æµ·å¿ƒ,,ï¼ˆå¸Œæœ›è¿™æ¬¡èƒ½é¡ºåˆ©â€¦â€¦ï¼‰
-é™ªä¼´å¤ä¼¦,3,CharOnly,0,1000,2000,4000,6000,3,2,xialun,3,Qå¤´-å¤ä¼¦,D89E9D,D3DCDA,AA3E26,å¤ä¼¦,,ä½†å¤ªæ¿€çƒˆçš„æ´»åŠ¨å¯ä¸è¡Œã€‚
-ç»™é™ˆç‰æ¾æ‰“å·¥,3,CharOnly,0,600,1200,3400,6800,8,3,chengyushu,3,Qå¤´-é™ˆç‰æ¾,87B19C,EAD6DB,5F715A,é™ˆç‰æ¾,,å¤œç¯åœ¨çœ¼çš®ä¸Šé—ªçƒï¼Œä½ æ²‰æ²‰ç¡å»ã€‚
+jobName,apCost,timeLimit,CD,rewardLv1,rewardLv2,rewardLv3,rewardLv4,unlockTime,chapter,CG,favorIncrement,Í·ÏñÃû,±³¾°É«,±³¾°É«2,×°ÊÎÑÕÉ«,½ÇÉ«Ãû,±¸×¢,unlockDialogKeyword,workEventIds
+°ïÕÅº£ĞÄÌî´Ê,3,CharOnly,0,200,800,2800,7200,1,1,zhanghaixing,3,QÍ·-ÕÅº£ĞÄ,698BDC,BCC1DE,213376,ÕÅº£ĞÄ,,£¨Ï£ÍûÕâ´ÎÄÜË³Àû¡­¡­£©,1|3
+Åã°éÏÄÂ×,3,CharOnly,0,1000,2000,4000,6000,3,2,xialun,3,QÍ·-ÏÄÂ×,D89E9D,D3DCDA,AA3E26,ÏÄÂ×,,µ«Ì«¼¤ÁÒµÄ»î¶¯¿É²»ĞĞ¡£,2|4
+¸ø³ÂÓñäø´ò¹¤,3,CharOnly,0,600,1200,3400,6800,8,3,chengyushu,3,QÍ·-³ÂÓñäø,87B19C,EAD6DB,5F715A,³ÂÓñäø,,Ò¹µÆÔÚÑÛÆ¤ÉÏÉÁË¸£¬Äã³Á³ÁË¯È¥¡£,5|6

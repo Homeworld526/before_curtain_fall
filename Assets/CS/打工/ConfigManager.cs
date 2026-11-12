@@ -9,7 +9,9 @@ public class ConfigManager : MonoBehaviour
     private const string NormalJobsResourcePath = "SchemaTable/Configs/NormalJobs";
     private const string CharacterJobsResourcePath = "SchemaTable/Configs/CharacterJobs";
     private const string WorkEventsResourcePath = "SchemaTable/Configs/WorkEvents";
+    private const string CharacterWorkEventsResourcePath = "SchemaTable/Configs/CharacterWorkEvents";
     private const int WorkEventColumnCount = 15;
+    private const int CharacterWorkEventColumnCount = 18;
     private static readonly UTF8Encoding StrictUtf8 = new UTF8Encoding(false, true);
     private static readonly Encoding Gb18030 = Encoding.GetEncoding(936);
 
@@ -18,6 +20,7 @@ public class ConfigManager : MonoBehaviour
     public List<JobData> normalJobs = new List<JobData>();
     public List<JobData> characterJobs = new List<JobData>();
     public Dictionary<string, WorkEventData> workEvents = new Dictionary<string, WorkEventData>();
+    public Dictionary<string, WorkEventData> characterWorkEvents = new Dictionary<string, WorkEventData>();
 
     private void Awake()
     {
@@ -42,9 +45,13 @@ public class ConfigManager : MonoBehaviour
         normalJobs.Clear();
         characterJobs.Clear();
         workEvents.Clear();
+        characterWorkEvents.Clear();
 
         LoadWorkEvents();
         Debug.Log($"打工事件加载完成: {workEvents.Count}个");
+
+        LoadCharacterWorkEvents();
+        Debug.Log($"角色打工事件加载完成: {characterWorkEvents.Count}个");
         
         LoadCsv(NormalJobsResourcePath, normalJobs, false);
         Debug.Log($"普通工作加载完成: {normalJobs.Count}个");
@@ -84,7 +91,7 @@ public class ConfigManager : MonoBehaviour
             
             Debug.Log($"[LoadCsv] {resourceName} 第 {i} 行: {cols.Length} 列, 内容: {line.Substring(0, Mathf.Min(50, line.Length))}...");
             
-            // 普通打工需要16列，角色打工需要19列（现在都有 unlockDialogKeyword 列）
+            // 角色打工第20列为可选的角色打工事件 ID 组，以兼容已有配置。
             int requiredCols = isCharacter ? 19 : 16;
             if (cols.Length < requiredCols)
             {
@@ -157,6 +164,10 @@ public class ConfigManager : MonoBehaviour
                 {
                     job.unlockDialogKeyword = cols[18].Trim();
                 }
+
+                job.workEventIds = cols.Length > 19
+                    ? ParseWorkEventIds(cols[19], characterWorkEvents, resourceName, i)
+                    : new string[0];
             }
 
             // 初始化运行时数据
@@ -219,6 +230,57 @@ public class ConfigManager : MonoBehaviour
         }
     }
 
+    private void LoadCharacterWorkEvents()
+    {
+        TextAsset text = Resources.Load<TextAsset>(CharacterWorkEventsResourcePath);
+        if (text == null)
+            throw new FileNotFoundException($"未找到角色打工事件配置: {CharacterWorkEventsResourcePath}");
+
+        string[] lines = DecodeCsvText(text).Split('\n');
+        if (lines.Length == 0 || string.IsNullOrWhiteSpace(lines[0]))
+        {
+            throw new InvalidDataException(
+                $"[LoadCharacterWorkEvents] {CharacterWorkEventsResourcePath} 缺少表头。");
+        }
+
+        for (int i = 1; i < lines.Length; i++)
+        {
+            if (string.IsNullOrWhiteSpace(lines[i]))
+                continue;
+
+            string[] cols = lines[i].Replace("\r", "").Split(',');
+            if (cols.Length < CharacterWorkEventColumnCount)
+            {
+                throw new InvalidDataException(
+                    $"[LoadCharacterWorkEvents] {CharacterWorkEventsResourcePath} 第 {i} 行列数不足，需要 {CharacterWorkEventColumnCount} 列，实际 {cols.Length} 列。");
+            }
+
+            WorkEventData workEvent = new WorkEventData
+            {
+                id = cols[0].Trim(),
+                description = cols[1].Trim(),
+                thirdOptionRequiredLevel = ParseThirdChoiceRequiredLevel(cols[2], CharacterWorkEventsResourcePath, i),
+                option1 = CreateCharacterWorkEventOption(cols, 3, i, 1),
+                option2 = CreateCharacterWorkEventOption(cols, 8, i, 2),
+                option3 = CreateCharacterWorkEventOption(cols, 13, i, 3)
+            };
+
+            if (string.IsNullOrWhiteSpace(workEvent.id) || string.IsNullOrWhiteSpace(workEvent.description))
+            {
+                throw new InvalidDataException(
+                    $"[LoadCharacterWorkEvents] {CharacterWorkEventsResourcePath} 第 {i} 行缺少事件 ID 或事件描述。");
+            }
+
+            if (characterWorkEvents.ContainsKey(workEvent.id))
+            {
+                throw new InvalidDataException(
+                    $"[LoadCharacterWorkEvents] {CharacterWorkEventsResourcePath} 第 {i} 行的事件 ID “{workEvent.id}”重复。");
+            }
+
+            characterWorkEvents.Add(workEvent.id, workEvent);
+        }
+    }
+
     private static WorkEventOption CreateWorkEventOption(
         string[] cols,
         int startIndex,
@@ -243,7 +305,40 @@ public class ConfigManager : MonoBehaviour
         return option;
     }
 
+    private static WorkEventOption CreateCharacterWorkEventOption(
+        string[] cols,
+        int startIndex,
+        int rowIndex,
+        int optionIndex)
+    {
+        WorkEventOption option = new WorkEventOption
+        {
+            text = cols[startIndex].Trim(),
+            cashDelta = int.Parse(cols[startIndex + 1]),
+            backboneDelta = int.Parse(cols[startIndex + 2]),
+            affectionDelta = int.Parse(cols[startIndex + 3]),
+            resultDescription = cols[startIndex + 4].Trim()
+        };
+
+        if (string.IsNullOrWhiteSpace(option.text) || string.IsNullOrWhiteSpace(option.resultDescription))
+        {
+            throw new InvalidDataException(
+                $"[LoadCharacterWorkEvents] {CharacterWorkEventsResourcePath} 第 {rowIndex} 行的选项 {optionIndex} 缺少文本或结果说明。");
+        }
+
+        return option;
+    }
+
     private string[] ParseWorkEventIds(string value, string resourceName, int rowIndex)
+    {
+        return ParseWorkEventIds(value, workEvents, resourceName, rowIndex);
+    }
+
+    private string[] ParseWorkEventIds(
+        string value,
+        Dictionary<string, WorkEventData> availableEvents,
+        string resourceName,
+        int rowIndex)
     {
         if (string.IsNullOrWhiteSpace(value))
             return new string[0];
@@ -260,7 +355,7 @@ public class ConfigManager : MonoBehaviour
                     $"[LoadCsv] {resourceName} 第 {rowIndex} 行的打工事件 ID 组包含重复 ID “{eventId}”。");
             }
 
-            if (!workEvents.ContainsKey(eventId))
+            if (!availableEvents.ContainsKey(eventId))
             {
                 throw new InvalidDataException(
                     $"[LoadCsv] {resourceName} 第 {rowIndex} 行引用了不存在的打工事件 ID “{eventId}”。");
@@ -276,6 +371,14 @@ public class ConfigManager : MonoBehaviour
     {
         if (!workEvents.TryGetValue(eventId, out WorkEventData workEvent))
             throw new KeyNotFoundException($"未找到打工事件 ID “{eventId}”。");
+
+        return workEvent;
+    }
+
+    public WorkEventData GetCharacterWorkEvent(string eventId)
+    {
+        if (!characterWorkEvents.TryGetValue(eventId, out WorkEventData workEvent))
+            throw new KeyNotFoundException($"未找到角色打工事件 ID “{eventId}”。");
 
         return workEvent;
     }

@@ -9,8 +9,8 @@ using UnityEngine.EventSystems;
 public class JobManager : MonoBehaviour
 {
     private const string WorkCgResourceDirectory = "CG/WorkCG";
-    private const float WorkEventTriggerProbability = 0.5f;
     private const float WorkEventDialogScale = 2f;
+    private const int WeeklyCgCount = 3;
 
     #region 单例
     public static JobManager Instance { get; private set; }
@@ -32,19 +32,23 @@ public class JobManager : MonoBehaviour
         public bool isCharJob;
         public int randomIndex; // 随机索引（1-3）
         public int dayIndex;
+        public int scheduleIndex;
         public int jobInstanceId;
-        public bool triggersChoice;
     }
     public jobLogManager jobLogManager;
     private JobData[] actjobs = new JobData[21]; // 使用固定长度数组，null表示空位
     private List<string> levelUpJobs = new List<string>();
     private List<string> performedCharJobs = new List<string>(); // 记录本周执行的角色打工
+    private readonly Dictionary<string, int> settlementAffectionDeltas = new Dictionary<string, int>();
+    private readonly List<string> settlementAffectionCharacters = new List<string>();
     private JobData _lyingFlatJob; // 躺平打工数据缓存
 
     private struct PendingWorkEvent
     {
         public string jobName;
         public int jobInstanceId;
+        public string npcName;
+        public bool isCharacterWorkEvent;
         public WorkEventData workEvent;
         public int jobLevel;
     }
@@ -245,8 +249,6 @@ public class JobManager : MonoBehaviour
     private bool isShowingCharacterJobs = false; // 当前是否显示角色打工标签页
     private bool _hasSavedPreviousBgm = false; // 是否已保存之前的BGM
     private bool _isFirstSwitchButCueShown = false; // SwitchBut是否第一次显示过Cue
-    private bool _hasUserSelectedJobs = false; // 是否有用户选择的打工
-    private bool _hasUserSelectedNormalJobs = false; // 是否有用户选择的普通打工（不包括躺平）
     private bool _skipCGRequested = false; // 是否请求跳过CG
 
     private DayOfWeek _savedDay = DayOfWeek.Sun;
@@ -1221,20 +1223,8 @@ public class JobManager : MonoBehaviour
         actCG.Clear();
         levelUpJobs.Clear();
         performedCharJobs.Clear();
-        _hasUserSelectedJobs = false;
-        _hasUserSelectedNormalJobs = false;
-        foreach (var job in actjobs)
-        {
-            if (job != null && !job.isEmpty && job.name != "躺平")
-            {
-                _hasUserSelectedJobs = true;
-                if (!job.ischar)
-                {
-                    _hasUserSelectedNormalJobs = true;
-                }
-            }
-        }
-        
+        settlementAffectionDeltas.Clear();
+        settlementAffectionCharacters.Clear();
         FillEmptySlotsWithLyingFlat();
         
         Dictionary<int, int> jobExecutionCounts = new Dictionary<int, int>();
@@ -1269,7 +1259,7 @@ public class JobManager : MonoBehaviour
             }
         }
 
-        SelectCGsByDayRange();
+        SelectWeeklyCgs();
 
         HashSet<int> processedInstanceIds = new HashSet<int>();
         
@@ -1308,7 +1298,9 @@ public class JobManager : MonoBehaviour
                         
                         if (AffectionManager.Instance != null)
                         {
-                            AffectionManager.Instance.AddAffection(job.npcName, 3 * executionCount);
+                            int baseAffectionDelta = 3 * executionCount;
+                            AffectionManager.Instance.AddAffection(job.npcName, baseAffectionDelta);
+                            RecordSettlementAffectionChange(job.npcName, baseAffectionDelta);
                         }
                         
                         if (!performedCharJobs.Contains(job.npcName))
@@ -1348,9 +1340,11 @@ public class JobManager : MonoBehaviour
                 }
 
                 totalReward += GetFinalReward(reward) * executionCount;
-                RegisterJobSettlementEffects(job, executionCount);
+                RegisterJobBaseSettlementEffects(job, executionCount);
             }
         }
+
+        QueueWeeklyWorkEvent();
 
         if (!string.IsNullOrEmpty(workBgmPath))
         {
@@ -1362,7 +1356,7 @@ public class JobManager : MonoBehaviour
         StartCoroutine(PlayCGAndPaySequence());
     }
 
-    private void RegisterJobSettlementEffects(JobData job, int executionCount)
+    private void RegisterJobBaseSettlementEffects(JobData job, int executionCount)
     {
         if (job.ischar)
             return;
@@ -1371,70 +1365,78 @@ public class JobManager : MonoBehaviour
         {
             _pendingBackboneDelta += job.Backbone * executionCount;
         }
+    }
 
-        if (job.workEventIds == null || job.workEventIds.Length == 0)
+    private void QueueWeeklyWorkEvent()
+    {
+        Dictionary<string, JobData> weeklyJobTypes = new Dictionary<string, JobData>();
+
+        foreach (JobData job in actjobs)
+        {
+            if (job == null || job.isEmpty || job.workEventIds == null || job.workEventIds.Length == 0)
+                continue;
+
+            string jobTypeKey = job.ischar
+                ? $"角色:{job.npcName}"
+                : $"普通:{job.name}";
+            if (!weeklyJobTypes.ContainsKey(jobTypeKey))
+                weeklyJobTypes.Add(jobTypeKey, job);
+        }
+
+        if (weeklyJobTypes.Count == 0)
             return;
 
-        int jobLevel = job.currentLevel;
-        if (_allJobs.TryGetValue(job.name, out JobData originalJob))
-            jobLevel = originalJob.currentLevel;
+        List<JobData> candidates = new List<JobData>(weeklyJobTypes.Values);
+        JobData selectedJob = candidates[UnityEngine.Random.Range(0, candidates.Count)];
+        int eventIndex = UnityEngine.Random.Range(0, selectedJob.workEventIds.Length);
+        string eventId = selectedJob.workEventIds[eventIndex];
+        WorkEventData workEvent = selectedJob.ischar
+            ? ConfigManager.Instance.GetCharacterWorkEvent(eventId)
+            : ConfigManager.Instance.GetWorkEvent(eventId);
 
-        for (int executionIndex = 0; executionIndex < executionCount; executionIndex++)
+        int jobLevel = selectedJob.ischar
+            ? selectedJob.plannedAffectionLevel
+            : GetCurrentJobLevel(selectedJob);
+
+        _pendingWorkEvents.Enqueue(new PendingWorkEvent
         {
-            if (UnityEngine.Random.value >= WorkEventTriggerProbability)
-            {
-                Debug.Log($"[JobManager] {job.name} 第 {executionIndex + 1} 个完成时段未触发打工事件。");
-                continue;
-            }
+            jobName = selectedJob.name,
+            jobInstanceId = selectedJob.instanceId,
+            npcName = selectedJob.npcName,
+            isCharacterWorkEvent = selectedJob.ischar,
+            workEvent = workEvent,
+            jobLevel = jobLevel
+        });
 
-            int eventIndex = UnityEngine.Random.Range(0, job.workEventIds.Length);
-            string eventId = job.workEventIds[eventIndex];
-            WorkEventData workEvent = ConfigManager.Instance.GetWorkEvent(eventId);
+        Debug.Log($"[JobManager] 第 {currentWeek} 周抽取打工事件：{selectedJob.name} -> {workEvent.id}。");
+    }
 
-            _pendingWorkEvents.Enqueue(new PendingWorkEvent
-            {
-                jobName = job.name,
-                jobInstanceId = job.instanceId,
-                workEvent = workEvent,
-                jobLevel = jobLevel
-            });
+    private int GetCurrentJobLevel(JobData job)
+    {
+        if (_allJobs.TryGetValue(job.name, out JobData originalJob))
+            return originalJob.currentLevel;
+
+        return job.currentLevel;
+    }
+
+    private IEnumerator PlayQueuedWorkEvents()
+    {
+        while (_pendingWorkEvents.Count > 0)
+        {
+            _isWaitingForActiveWorkEvent = true;
+            ShowNextWorkEvent();
+            yield return new WaitUntil(() => !_isWaitingForActiveWorkEvent);
         }
     }
 
     private void CompleteWorkSettlement()
     {
-        if (_pendingWorkEvents.Count > 0)
-        {
-            ShowNextWorkEvent();
-            return;
-        }
-
         FinishWork();
     }
 
     private void ShowNextWorkEvent()
     {
         ShowWorkEvent(_pendingWorkEvents.Dequeue());
-    }
-
-    private bool TryShowNextWorkEventForJob(int jobInstanceId)
-    {
-        int pendingEventCount = _pendingWorkEvents.Count;
-
-        for (int i = 0; i < pendingEventCount; i++)
-        {
-            PendingWorkEvent pendingWorkEvent = _pendingWorkEvents.Dequeue();
-            if (pendingWorkEvent.jobInstanceId == jobInstanceId)
-            {
-                _isWaitingForActiveWorkEvent = true;
-                ShowWorkEvent(pendingWorkEvent);
-                return true;
-            }
-
-            _pendingWorkEvents.Enqueue(pendingWorkEvent);
-        }
-
-        return false;
     }
 
     private void ShowWorkEvent(PendingWorkEvent pendingWorkEvent)
@@ -1505,7 +1507,30 @@ public class JobManager : MonoBehaviour
                 $"第 {currentWeek} 周打工事件“{_activeWorkEvent.workEvent.id}”");
         }
 
-        Debug.Log($"[JobManager] {_activeWorkEvent.jobName} 打工事件“{_activeWorkEvent.workEvent.id}”已结算：现金 {option.cashDelta:+#;-#;0}，骨气 {option.backboneDelta:+#;-#;0}");
+        if (_activeWorkEvent.isCharacterWorkEvent && option.affectionDelta != 0)
+        {
+            if (string.IsNullOrWhiteSpace(_activeWorkEvent.npcName))
+            {
+                throw new System.InvalidOperationException(
+                    $"角色打工“{_activeWorkEvent.jobName}”触发事件时缺少关联角色名称。");
+            }
+
+            if (AffectionManager.Instance == null)
+            {
+                throw new System.InvalidOperationException(
+                    $"角色打工事件“{_activeWorkEvent.workEvent.id}”需要 AffectionManager 实例。");
+            }
+
+            AffectionManager.Instance.AddAffection(_activeWorkEvent.npcName, option.affectionDelta);
+            RecordSettlementAffectionChange(_activeWorkEvent.npcName, option.affectionDelta);
+        }
+
+        string settlementLog =
+            $"[JobManager] {_activeWorkEvent.jobName} 打工事件“{_activeWorkEvent.workEvent.id}”已结算：现金 {option.cashDelta:+#;-#;0}，骨气 {option.backboneDelta:+#;-#;0}";
+        if (_activeWorkEvent.isCharacterWorkEvent)
+            settlementLog += $"，{_activeWorkEvent.npcName}好感 {option.affectionDelta:+#;-#;0}";
+
+        Debug.Log(settlementLog);
         ShowWorkEventResult(option);
     }
 
@@ -1515,6 +1540,8 @@ public class JobManager : MonoBehaviour
         ConfigureWorkEventResultButton();
         confirmDialogText.text =
             $"{option.resultDescription}\n\n现金 {option.cashDelta:+#;-#;0}\n骨气 {option.backboneDelta:+#;-#;0}";
+        if (_activeWorkEvent.isCharacterWorkEvent)
+            confirmDialogText.text += $"\n{_activeWorkEvent.npcName}好感 {option.affectionDelta:+#;-#;0}";
         confirmDialogPanel.transform.localScale = Vector3.one * WorkEventDialogScale;
         confirmDialogPanel.SetActive(true);
     }
@@ -1540,6 +1567,35 @@ public class JobManager : MonoBehaviour
             return;
 
         BackboneSystem.Adjust(_pendingBackboneDelta, $"第 {currentWeek} 周打工结算");
+    }
+
+    private void RecordSettlementAffectionChange(string characterName, int delta)
+    {
+        if (!settlementAffectionDeltas.TryGetValue(characterName, out int currentDelta))
+        {
+            settlementAffectionDeltas.Add(characterName, delta);
+            settlementAffectionCharacters.Add(characterName);
+            return;
+        }
+
+        checked
+        {
+            settlementAffectionDeltas[characterName] = currentDelta + delta;
+        }
+    }
+
+    private string GetSettlementAffectionText()
+    {
+        if (settlementAffectionCharacters.Count == 0)
+            return string.Empty;
+
+        List<string> changes = new List<string>();
+        foreach (string characterName in settlementAffectionCharacters)
+        {
+            changes.Add($"{characterName} {settlementAffectionDeltas[characterName]:+#;-#;0}");
+        }
+
+        return "角色好感：" + string.Join("，", changes);
     }
 
     private void FillEmptySlotsWithLyingFlat()
@@ -1573,37 +1629,93 @@ public class JobManager : MonoBehaviour
         }
     }
 
-    private void SelectCGsByDayRange()
+    private void SelectWeeklyCgs()
     {
+        actCG.Clear();
         int luckIndex = GetLuckIndex();
-        HashSet<int> triggeredJobInstances = new HashSet<int>();
+        Dictionary<string, List<CGInfo>> candidatesByJobType = new Dictionary<string, List<CGInfo>>();
+        HashSet<int> addedJobInstances = new HashSet<int>();
 
-        for (int dayIndex = 0; dayIndex < 7; dayIndex++)
+        for (int scheduleIndex = 0; scheduleIndex < actjobs.Length; scheduleIndex++)
         {
-            HashSet<int> addedJobInstances = new HashSet<int>();
-            int firstSlot = dayIndex * 3;
+            JobData job = actjobs[scheduleIndex];
+            if (job == null || job.isEmpty || string.IsNullOrEmpty(job.imageName)
+                || !addedJobInstances.Add(job.instanceId))
+                continue;
 
-            for (int slotOffset = 0; slotOffset < 3; slotOffset++)
+            string cgPath = $"{WorkCgResourceDirectory}/打工cg-{job.imageName}-{luckIndex}";
+            if (Resources.Load<Sprite>(cgPath) == null)
             {
-                JobData job = actjobs[firstSlot + slotOffset];
-                if (job == null || job.isEmpty || job.ischar || job.name == "躺平"
-                    || string.IsNullOrEmpty(job.imageName) || !addedJobInstances.Add(job.instanceId))
-                {
-                    continue;
-                }
-
-                actCG.Add(new CGInfo
-                {
-                    imageName = job.imageName,
-                    jobName = job.name,
-                    npcName = job.npcName,
-                    isCharJob = false,
-                    randomIndex = luckIndex,
-                    dayIndex = dayIndex,
-                    jobInstanceId = job.instanceId,
-                    triggersChoice = triggeredJobInstances.Add(job.instanceId)
-                });
+                Debug.LogWarning($"[JobManager] 打工 CG 资源不存在，已跳过候选项：{cgPath}。");
+                continue;
             }
+
+            string jobTypeKey = job.ischar
+                ? $"角色:{job.npcName}"
+                : $"普通:{job.name}";
+            if (!candidatesByJobType.TryGetValue(jobTypeKey, out List<CGInfo> candidates))
+            {
+                candidates = new List<CGInfo>();
+                candidatesByJobType.Add(jobTypeKey, candidates);
+            }
+
+            candidates.Add(new CGInfo
+            {
+                imageName = job.imageName,
+                jobName = job.name,
+                npcName = job.npcName,
+                isCharJob = job.ischar,
+                randomIndex = luckIndex,
+                dayIndex = scheduleIndex / 3,
+                scheduleIndex = scheduleIndex,
+                jobInstanceId = job.instanceId
+            });
+        }
+
+        List<CGInfo> distinctCandidates = new List<CGInfo>();
+        List<CGInfo> duplicateCandidates = new List<CGInfo>();
+        foreach (List<CGInfo> candidates in candidatesByJobType.Values)
+        {
+            int distinctIndex = UnityEngine.Random.Range(0, candidates.Count);
+            distinctCandidates.Add(candidates[distinctIndex]);
+            for (int i = 0; i < candidates.Count; i++)
+            {
+                if (i != distinctIndex)
+                    duplicateCandidates.Add(candidates[i]);
+            }
+        }
+
+        Shuffle(distinctCandidates);
+        Shuffle(duplicateCandidates);
+
+        foreach (CGInfo candidate in distinctCandidates)
+        {
+            if (actCG.Count == WeeklyCgCount)
+                break;
+
+            actCG.Add(candidate);
+        }
+
+        foreach (CGInfo candidate in duplicateCandidates)
+        {
+            if (actCG.Count == WeeklyCgCount)
+                break;
+
+            actCG.Add(candidate);
+        }
+
+        actCG.Sort((left, right) => left.scheduleIndex.CompareTo(right.scheduleIndex));
+        Debug.Log($"[JobManager] 第 {currentWeek} 周随机选取 {actCG.Count} 张打工 CG。");
+    }
+
+    private static void Shuffle<T>(List<T> items)
+    {
+        for (int i = items.Count - 1; i > 0; i--)
+        {
+            int swapIndex = UnityEngine.Random.Range(0, i + 1);
+            T temporary = items[i];
+            items[i] = items[swapIndex];
+            items[swapIndex] = temporary;
         }
     }
     #endregion
@@ -1775,57 +1887,6 @@ public class JobManager : MonoBehaviour
     {
         PlayWorkBgm();
         
-        bool onlyHasCharacterJobs = _hasUserSelectedJobs && !_hasUserSelectedNormalJobs && performedCharJobs.Count > 0;
-        
-        if (onlyHasCharacterJobs)
-        {
-            // 检查 SmallTalkManager 和相关组件是否可用
-            if (SmallTalkManager.Instance != null && 
-                DialogList.Instance != null && 
-                DialogList.Instance.smallTalk != null)
-            {
-                int randomIndex = Random.Range(0, performedCharJobs.Count);
-                string selectedNpc = performedCharJobs[randomIndex];
-                
-                // 显示跳过小剧场按钮并提高Canvas层级
-                if (skipSmallTalkBtn != null)
-                {
-                    skipSmallTalkBtn.gameObject.SetActive(true);
-                }
-                RaiseSkipButtonCanvasOrder();
-                
-                Coroutine bgmMonitorCoroutine = StartCoroutine(MonitorAndRestoreWorkBgmCoroutine());
-                
-                yield return StartCoroutine(SmallTalkManager.Instance.PlayCharacterSideStory(
-                    selectedNpc + "-对话" + (Random.value < 0.5 ? "1" : "2")
-                ));
-                
-                StopCoroutine(bgmMonitorCoroutine);
-                
-                // 隐藏跳过小剧场按钮并恢复Canvas层级
-                RestoreSkipButtonCanvasOrder();
-                if (skipSmallTalkBtn != null)
-                {
-                    skipSmallTalkBtn.gameObject.SetActive(false);
-                }
-                
-                if (SoundsManager.Instance != null && !string.IsNullOrEmpty(workBgmPath))
-                {
-                    SoundsManager.Instance.PlayMusic(workBgmPath);
-                }
-            }
-            else
-            {
-                Debug.LogWarning($"[JobManager] 无法播放角色打工小剧场: SmallTalkManager.Instance={SmallTalkManager.Instance != null}, DialogList.Instance={DialogList.Instance != null}, smallTalk={DialogList.Instance?.smallTalk != null}");
-            }
-            
-            yield return StartCoroutine(WaitForBlackoutTransitionWithCallback(() =>
-            {
-                CompleteWorkSettlement();
-            }));
-            yield break;
-        }
-        
         if (progressBarParent != null && !progressBarParent.activeInHierarchy)
         {
             progressBarParent.SetActive(true);
@@ -1871,6 +1932,12 @@ public class JobManager : MonoBehaviour
             {
                 workCGUI.SetActive(false);
             }
+            isPlayingCG = false;
+            if (skipCGBtn != null)
+            {
+                skipCGBtn.gameObject.SetActive(false);
+            }
+            yield return StartCoroutine(PlayQueuedWorkEvents());
             yield return new WaitForEndOfFrame();
             CompleteWorkSettlement();
             yield break;
@@ -1920,11 +1987,6 @@ public class JobManager : MonoBehaviour
                     yield return FadeIn(CG.gameObject, 0.2f);
 
                 yield return StartCoroutine(ShowReflectionText(cgInfo.imageName, randomIndex));
-
-                while (cgInfo.triggersChoice && TryShowNextWorkEventForJob(cgInfo.jobInstanceId))
-                {
-                    yield return new WaitUntil(() => !_isWaitingForActiveWorkEvent);
-                }
 
                 if (_skipCGRequested)
                 {
@@ -1982,12 +2044,20 @@ public class JobManager : MonoBehaviour
             if (reflectionText != null)
                 reflectionText.gameObject.SetActive(false);
 
+            isPlayingCG = false;
+            if (skipCGBtn != null)
+            {
+                skipCGBtn.gameObject.SetActive(false);
+            }
+
+            // CG 已完整播放或被跳过后，统一处理本周唯一的打工事件。
+            yield return StartCoroutine(PlayQueuedWorkEvents());
+
             // 在进入小剧场前隐藏整个打工UI，避免跳过小剧场时闪现
             if (workUI != null)
             {
                 workUI.SetActive(false);
             }
-            isPlayingCG = false;
 
             // 检查 SmallTalkManager 和相关组件是否可用
             if (SmallTalkManager.Instance != null && 
@@ -2977,14 +3047,13 @@ public class JobManager : MonoBehaviour
         rewardText.text = $"总收入：+${totalReward:N0} {luckText}";
         remainingMoneyText.text = $"剩余：${currentMoney:N0}";
 
-        if (levelUpJobs.Count > 0)
-        {
-            levelUpText.text = "升级：" + string.Join(", ", levelUpJobs);
-        }
-        else
-        {
-            levelUpText.text = "本周无升级";
-        }
+        string levelUpSummary = levelUpJobs.Count > 0
+            ? "升级：" + string.Join(", ", levelUpJobs)
+            : "本周无升级";
+        string affectionSummary = GetSettlementAffectionText();
+        levelUpText.text = string.IsNullOrEmpty(affectionSummary)
+            ? levelUpSummary
+            : $"{levelUpSummary}\n{affectionSummary}";
 
         SettlementPanel.SetActive(true);
     }

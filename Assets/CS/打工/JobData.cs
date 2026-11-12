@@ -32,6 +32,7 @@ namespace GameSystem
         public string text;
         public int cashDelta;
         public int backboneDelta;
+        public int affectionDelta;
         public string resultDescription;
     }
 
