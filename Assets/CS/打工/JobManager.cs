@@ -1496,10 +1496,16 @@ public class JobManager : MonoBehaviour
         checked
         {
             totalReward += option.cashDelta;
-            _pendingBackboneDelta += option.backboneDelta;
         }
 
-        Debug.Log($"[JobManager] {_activeWorkEvent.jobName} 打工事件“{_activeWorkEvent.workEvent.id}”结算待处理：现金 {option.cashDelta:+#;-#;0}，骨气 {option.backboneDelta:+#;-#;0}");
+        if (option.backboneDelta != 0)
+        {
+            BackboneSystem.Adjust(
+                option.backboneDelta,
+                $"第 {currentWeek} 周打工事件“{_activeWorkEvent.workEvent.id}”");
+        }
+
+        Debug.Log($"[JobManager] {_activeWorkEvent.jobName} 打工事件“{_activeWorkEvent.workEvent.id}”已结算：现金 {option.cashDelta:+#;-#;0}，骨气 {option.backboneDelta:+#;-#;0}");
         ShowWorkEventResult(option);
     }
 
