@@ -10,8 +10,8 @@ public class ConfigManager : MonoBehaviour
     private const string CharacterJobsResourcePath = "SchemaTable/Configs/CharacterJobs";
     private const string WorkEventsResourcePath = "SchemaTable/Configs/WorkEvents";
     private const string CharacterWorkEventsResourcePath = "SchemaTable/Configs/CharacterWorkEvents";
-    private const int WorkEventColumnCount = 15;
-    private const int CharacterWorkEventColumnCount = 18;
+    private const int WorkEventColumnCount = 12;
+    private const int CharacterWorkEventColumnCount = 13;
     private static readonly UTF8Encoding StrictUtf8 = new UTF8Encoding(false, true);
     private static readonly Encoding Gb18030 = Encoding.GetEncoding(936);
 
@@ -198,10 +198,10 @@ public class ConfigManager : MonoBehaviour
                 continue;
 
             string[] cols = lines[i].Replace("\r", "").Split(',');
-            if (cols.Length < WorkEventColumnCount)
+            if (cols.Length != WorkEventColumnCount)
             {
                 throw new InvalidDataException(
-                    $"[LoadWorkEvents] {WorkEventsResourcePath} 第 {i} 行列数不足，需要 {WorkEventColumnCount} 列，实际 {cols.Length} 列。");
+                    $"[LoadWorkEvents] {WorkEventsResourcePath} 第 {i} 行列数错误，需要 {WorkEventColumnCount} 列，实际 {cols.Length} 列。");
             }
 
             WorkEventData workEvent = new WorkEventData
@@ -210,8 +210,8 @@ public class ConfigManager : MonoBehaviour
                 description = cols[1].Trim(),
                 thirdOptionRequiredLevel = ParseThirdChoiceRequiredLevel(cols[2], WorkEventsResourcePath, i),
                 option1 = CreateWorkEventOption(cols, 3, WorkEventsResourcePath, i, 1),
-                option2 = CreateWorkEventOption(cols, 7, WorkEventsResourcePath, i, 2),
-                option3 = CreateWorkEventOption(cols, 11, WorkEventsResourcePath, i, 3)
+                option2 = CreateWorkEventOption(cols, 6, WorkEventsResourcePath, i, 2),
+                option3 = CreateWorkEventOption(cols, 9, WorkEventsResourcePath, i, 3)
             };
 
             if (string.IsNullOrWhiteSpace(workEvent.id) || string.IsNullOrWhiteSpace(workEvent.description))
@@ -249,20 +249,23 @@ public class ConfigManager : MonoBehaviour
                 continue;
 
             string[] cols = lines[i].Replace("\r", "").Split(',');
-            if (cols.Length < CharacterWorkEventColumnCount)
+            if (cols.Length != CharacterWorkEventColumnCount)
             {
                 throw new InvalidDataException(
-                    $"[LoadCharacterWorkEvents] {CharacterWorkEventsResourcePath} 第 {i} 行列数不足，需要 {CharacterWorkEventColumnCount} 列，实际 {cols.Length} 列。");
+                    $"[LoadCharacterWorkEvents] {CharacterWorkEventsResourcePath} 第 {i} 行列数错误，需要 {CharacterWorkEventColumnCount} 列，实际 {cols.Length} 列。");
             }
 
             WorkEventData workEvent = new WorkEventData
             {
                 id = cols[0].Trim(),
                 description = cols[1].Trim(),
-                thirdOptionRequiredLevel = ParseThirdChoiceRequiredLevel(cols[2], CharacterWorkEventsResourcePath, i),
-                option1 = CreateCharacterWorkEventOption(cols, 3, i, 1),
-                option2 = CreateCharacterWorkEventOption(cols, 8, i, 2),
-                option3 = CreateCharacterWorkEventOption(cols, 13, i, 3)
+                requiredAffectionLevel = ParseNonNegativeInt(
+                    cols[2], CharacterWorkEventsResourcePath, i, "事件解锁好感度要求"),
+                thirdOptionRequiredAffectionLevel = ParseNonNegativeInt(
+                    cols[3], CharacterWorkEventsResourcePath, i, "第三选项解锁好感度要求"),
+                option1 = CreateCharacterWorkEventOption(cols, 4, CharacterWorkEventsResourcePath, i, 1),
+                option2 = CreateCharacterWorkEventOption(cols, 7, CharacterWorkEventsResourcePath, i, 2),
+                option3 = CreateCharacterWorkEventOption(cols, 10, CharacterWorkEventsResourcePath, i, 3)
             };
 
             if (string.IsNullOrWhiteSpace(workEvent.id) || string.IsNullOrWhiteSpace(workEvent.description))
@@ -291,10 +294,12 @@ public class ConfigManager : MonoBehaviour
         WorkEventOption option = new WorkEventOption
         {
             text = cols[startIndex].Trim(),
-            cashDelta = int.Parse(cols[startIndex + 1]),
-            backboneDelta = int.Parse(cols[startIndex + 2]),
-            resultDescription = cols[startIndex + 3].Trim()
+            resultDescription = cols[startIndex + 2].Trim()
         };
+        int[] deltas = ParseOptionDeltas(
+            cols[startIndex + 1], 2, resourceName, rowIndex, optionIndex, "钱|骨气");
+        option.cashDelta = deltas[0];
+        option.backboneDelta = deltas[1];
 
         if (string.IsNullOrWhiteSpace(option.text) || string.IsNullOrWhiteSpace(option.resultDescription))
         {
@@ -308,25 +313,56 @@ public class ConfigManager : MonoBehaviour
     private static WorkEventOption CreateCharacterWorkEventOption(
         string[] cols,
         int startIndex,
+        string resourceName,
         int rowIndex,
         int optionIndex)
     {
         WorkEventOption option = new WorkEventOption
         {
             text = cols[startIndex].Trim(),
-            cashDelta = int.Parse(cols[startIndex + 1]),
-            backboneDelta = int.Parse(cols[startIndex + 2]),
-            affectionDelta = int.Parse(cols[startIndex + 3]),
-            resultDescription = cols[startIndex + 4].Trim()
+            resultDescription = cols[startIndex + 2].Trim()
         };
+        int[] deltas = ParseOptionDeltas(
+            cols[startIndex + 1], 3, resourceName, rowIndex, optionIndex, "钱|骨气|好感度");
+        option.cashDelta = deltas[0];
+        option.backboneDelta = deltas[1];
+        option.affectionDelta = deltas[2];
 
         if (string.IsNullOrWhiteSpace(option.text) || string.IsNullOrWhiteSpace(option.resultDescription))
         {
             throw new InvalidDataException(
-                $"[LoadCharacterWorkEvents] {CharacterWorkEventsResourcePath} 第 {rowIndex} 行的选项 {optionIndex} 缺少文本或结果说明。");
+                $"[LoadCharacterWorkEvents] {resourceName} 第 {rowIndex} 行的选项 {optionIndex} 缺少文本或结果说明。");
         }
 
         return option;
+    }
+
+    private static int[] ParseOptionDeltas(
+        string value,
+        int expectedCount,
+        string resourceName,
+        int rowIndex,
+        int optionIndex,
+        string valueFormat)
+    {
+        string[] values = value.Split('|');
+        if (values.Length != expectedCount)
+        {
+            throw new InvalidDataException(
+                $"[LoadCsv] {resourceName} 第 {rowIndex} 行选项 {optionIndex} 的影响数值必须为“{valueFormat}”格式，实际为“{value}”。");
+        }
+
+        int[] deltas = new int[expectedCount];
+        for (int i = 0; i < values.Length; i++)
+        {
+            if (!int.TryParse(values[i].Trim(), out deltas[i]))
+            {
+                throw new InvalidDataException(
+                    $"[LoadCsv] {resourceName} 第 {rowIndex} 行选项 {optionIndex} 的影响数值“{values[i]}”不是有效整数。");
+            }
+        }
+
+        return deltas;
     }
 
     private string[] ParseWorkEventIds(string value, string resourceName, int rowIndex)
@@ -404,6 +440,17 @@ public class ConfigManager : MonoBehaviour
             _ => throw new InvalidDataException(
                 $"[LoadCsv] {resourceName} 第 {rowIndex} 行第三个打工选项的熟练度条件必须为“熟手”或“老手”，实际为“{value}”。")
         };
+    }
+
+    private static int ParseNonNegativeInt(string value, string resourceName, int rowIndex, string fieldName)
+    {
+        if (!int.TryParse(value.Trim(), out int parsedValue) || parsedValue < 0)
+        {
+            throw new InvalidDataException(
+                $"[LoadCsv] {resourceName} 第 {rowIndex} 行“{fieldName}”必须为非负整数，实际为“{value}”。");
+        }
+
+        return parsedValue;
     }
 
     TimeType ParseTimeType(string str, bool isChar)

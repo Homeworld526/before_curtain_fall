@@ -42,6 +42,8 @@ namespace GameSystem
         public string id;
         public string description;
         public int thirdOptionRequiredLevel;
+        public int requiredAffectionLevel;
+        public int thirdOptionRequiredAffectionLevel;
         public WorkEventOption option1;
         public WorkEventOption option2;
         public WorkEventOption option3;
@@ -91,6 +93,8 @@ namespace GameSystem
         [NonSerialized] public bool hasClickedCue = false;
 
         [NonSerialized] public int plannedAffectionLevel = -1;
+
+        [NonSerialized] public int plannedAffection = -1;
 
         public bool CanPerformAt(DayOfWeek day, TimeSlot slot)
         {

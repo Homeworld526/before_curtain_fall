@@ -50,7 +50,16 @@ public class JobManager : MonoBehaviour
         public string npcName;
         public bool isCharacterWorkEvent;
         public WorkEventData workEvent;
-        public int jobLevel;
+        public int proficiencyLevel;
+        public int affectionLevel;
+    }
+
+    private sealed class WeeklyWorkEventCandidate
+    {
+        public JobData job;
+        public readonly List<string> eligibleEventIds = new List<string>();
+        public int proficiencyLevel;
+        public int affectionLevel;
     }
 
     private enum ConfirmDialogMode
@@ -1283,9 +1292,11 @@ public class JobManager : MonoBehaviour
                     else
                     {
                         int affectionLevel = 0;
+                        int affection = 0;
                         if (AffectionManager.Instance != null)
                         {
                             affectionLevel = AffectionManager.Instance.GetAffectionLevel(job.npcName);
+                            affection = AffectionManager.Instance.GetAffection(job.npcName);
                         }
                         else
                         {
@@ -1295,6 +1306,7 @@ public class JobManager : MonoBehaviour
                         reward = job.rewards[safeLevel];
                         
                         job.plannedAffectionLevel = affectionLevel;
+                        job.plannedAffection = affection;
                         
                         if (AffectionManager.Instance != null)
                         {
@@ -1369,7 +1381,8 @@ public class JobManager : MonoBehaviour
 
     private void QueueWeeklyWorkEvent()
     {
-        Dictionary<string, JobData> weeklyJobTypes = new Dictionary<string, JobData>();
+        Dictionary<string, WeeklyWorkEventCandidate> weeklyJobTypes =
+            new Dictionary<string, WeeklyWorkEventCandidate>();
 
         foreach (JobData job in actjobs)
         {
@@ -1377,26 +1390,52 @@ public class JobManager : MonoBehaviour
                 continue;
 
             string jobTypeKey = job.ischar
-                ? $"角色:{job.npcName}"
+                ? $"角色:{job.npcName}:{job.name}"
                 : $"普通:{job.name}";
-            if (!weeklyJobTypes.ContainsKey(jobTypeKey))
-                weeklyJobTypes.Add(jobTypeKey, job);
+            if (!weeklyJobTypes.TryGetValue(jobTypeKey, out WeeklyWorkEventCandidate candidate))
+            {
+                candidate = new WeeklyWorkEventCandidate
+                {
+                    job = job,
+                    proficiencyLevel = job.ischar ? 0 : GetCurrentJobLevel(job),
+                    affectionLevel = job.ischar ? GetCharacterEventAffectionLevel(job) : 0
+                };
+                weeklyJobTypes.Add(jobTypeKey, candidate);
+            }
+
+            foreach (string eventId in job.workEventIds)
+            {
+                if (candidate.eligibleEventIds.Contains(eventId))
+                    continue;
+
+                if (job.ischar)
+                {
+                    WorkEventData characterWorkEvent = ConfigManager.Instance.GetCharacterWorkEvent(eventId);
+                    if (candidate.affectionLevel < characterWorkEvent.requiredAffectionLevel)
+                        continue;
+                }
+
+                candidate.eligibleEventIds.Add(eventId);
+            }
         }
 
-        if (weeklyJobTypes.Count == 0)
+        List<WeeklyWorkEventCandidate> candidates = new List<WeeklyWorkEventCandidate>();
+        foreach (WeeklyWorkEventCandidate candidate in weeklyJobTypes.Values)
+        {
+            if (candidate.eligibleEventIds.Count > 0)
+                candidates.Add(candidate);
+        }
+
+        if (candidates.Count == 0)
             return;
 
-        List<JobData> candidates = new List<JobData>(weeklyJobTypes.Values);
-        JobData selectedJob = candidates[UnityEngine.Random.Range(0, candidates.Count)];
-        int eventIndex = UnityEngine.Random.Range(0, selectedJob.workEventIds.Length);
-        string eventId = selectedJob.workEventIds[eventIndex];
+        WeeklyWorkEventCandidate selectedCandidate = candidates[UnityEngine.Random.Range(0, candidates.Count)];
+        JobData selectedJob = selectedCandidate.job;
+        int eventIndex = UnityEngine.Random.Range(0, selectedCandidate.eligibleEventIds.Count);
+        string eventId = selectedCandidate.eligibleEventIds[eventIndex];
         WorkEventData workEvent = selectedJob.ischar
             ? ConfigManager.Instance.GetCharacterWorkEvent(eventId)
             : ConfigManager.Instance.GetWorkEvent(eventId);
-
-        int jobLevel = selectedJob.ischar
-            ? selectedJob.plannedAffectionLevel
-            : GetCurrentJobLevel(selectedJob);
 
         _pendingWorkEvents.Enqueue(new PendingWorkEvent
         {
@@ -1405,10 +1444,28 @@ public class JobManager : MonoBehaviour
             npcName = selectedJob.npcName,
             isCharacterWorkEvent = selectedJob.ischar,
             workEvent = workEvent,
-            jobLevel = jobLevel
+            proficiencyLevel = selectedCandidate.proficiencyLevel,
+            affectionLevel = selectedCandidate.affectionLevel
         });
 
         Debug.Log($"[JobManager] 第 {currentWeek} 周抽取打工事件：{selectedJob.name} -> {workEvent.id}。");
+    }
+
+    private int GetCharacterEventAffectionLevel(JobData job)
+    {
+        if (string.IsNullOrWhiteSpace(job.npcName))
+        {
+            throw new System.InvalidOperationException(
+                $"角色打工“{job.name}”配置了角色打工事件，但缺少关联角色名称。");
+        }
+
+        if (job.plannedAffection < 0)
+        {
+            throw new System.InvalidOperationException(
+                $"角色打工“{job.name}”在抽取打工事件前没有记录本周结算前的好感度。");
+        }
+
+        return job.plannedAffection;
     }
 
     private int GetCurrentJobLevel(JobData job)
@@ -1448,7 +1505,7 @@ public class JobManager : MonoBehaviour
 
         _activeWorkEvent = pendingWorkEvent;
         _confirmDialogMode = ConfirmDialogMode.WorkEventChoice;
-        bool showThirdChoice = IsThirdOptionAvailable(_activeWorkEvent.workEvent, _activeWorkEvent.jobLevel);
+        bool showThirdChoice = IsActiveWorkEventThirdOptionAvailable();
         ConfigureChoiceButtonVisuals(
             _activeWorkEvent.workEvent.option1.text,
             _activeWorkEvent.workEvent.option2.text,
@@ -1470,6 +1527,24 @@ public class JobManager : MonoBehaviour
         return jobLevel >= workEvent.thirdOptionRequiredLevel;
     }
 
+    private bool IsCharacterThirdOptionAvailable(WorkEventData workEvent, int affectionLevel)
+    {
+        if (workEvent.thirdOptionRequiredAffectionLevel < 0)
+        {
+            throw new System.InvalidOperationException(
+                $"角色打工事件“{workEvent.id}”的第三个选择项好感度条件不能小于 0。");
+        }
+
+        return affectionLevel >= workEvent.thirdOptionRequiredAffectionLevel;
+    }
+
+    private bool IsActiveWorkEventThirdOptionAvailable()
+    {
+        return _activeWorkEvent.isCharacterWorkEvent
+            ? IsCharacterThirdOptionAvailable(_activeWorkEvent.workEvent, _activeWorkEvent.affectionLevel)
+            : IsThirdOptionAvailable(_activeWorkEvent.workEvent, _activeWorkEvent.proficiencyLevel);
+    }
+
     private void ResolveActiveWorkEvent(WorkEventOptionIndex selectedOption)
     {
         WorkEventOption option;
@@ -1483,10 +1558,11 @@ public class JobManager : MonoBehaviour
                 option = _activeWorkEvent.workEvent.option2;
                 break;
             case WorkEventOptionIndex.Option3:
-                if (!IsThirdOptionAvailable(_activeWorkEvent.workEvent, _activeWorkEvent.jobLevel))
+                if (!IsActiveWorkEventThirdOptionAvailable())
                 {
+                    string requirementName = _activeWorkEvent.isCharacterWorkEvent ? "好感度" : "熟练度";
                     throw new System.InvalidOperationException(
-                        $"打工“{_activeWorkEvent.jobName}”当前熟练度不满足第三个选择项的显示条件。");
+                        $"打工“{_activeWorkEvent.jobName}”当前{requirementName}不满足第三个选择项的显示条件。");
                 }
 
                 option = _activeWorkEvent.workEvent.option3;
