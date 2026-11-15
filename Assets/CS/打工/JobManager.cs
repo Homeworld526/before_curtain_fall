@@ -1403,19 +1403,19 @@ public class JobManager : MonoBehaviour
                 weeklyJobTypes.Add(jobTypeKey, candidate);
             }
 
-            foreach (string eventId in job.workEventIds)
+            foreach (string workEventId in job.workEventIds)
             {
-                if (candidate.eligibleEventIds.Contains(eventId))
+                if (candidate.eligibleEventIds.Contains(workEventId))
                     continue;
 
                 if (job.ischar)
                 {
-                    WorkEventData characterWorkEvent = ConfigManager.Instance.GetCharacterWorkEvent(eventId);
+                    WorkEventData characterWorkEvent = ConfigManager.Instance.GetCharacterWorkEvent(workEventId);
                     if (candidate.affectionLevel < characterWorkEvent.requiredAffectionLevel)
                         continue;
                 }
 
-                candidate.eligibleEventIds.Add(eventId);
+                candidate.eligibleEventIds.Add(workEventId);
             }
         }
 
