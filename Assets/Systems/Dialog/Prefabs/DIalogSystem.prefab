@@ -5987,6 +5987,7 @@ MonoBehaviour:
   - {fileID: 4900000, guid: 3675247b98e4ab843b08fbf783a2443e, type: 3}
   - {fileID: 4900000, guid: 0f30a827c219a3b47bab9a9861782293, type: 3}
   - {fileID: 4900000, guid: 698fb1b53f4739e4fa9da6d9f407a35d, type: 3}
+  - {fileID: 4900000, guid: d1c9e79638464cf9a57ea8e926312d31, type: 3}
   hosts:
   - {fileID: 7132004764739175536}
   - {fileID: 8633922728384159611}
@@ -6000,7 +6001,8 @@ MonoBehaviour:
   - {fileID: 7132004764739175536}
   - {fileID: 7132004764739175536}
   - {fileID: 7132004764739175536}
-  isMiddle: 000001000000000000010101
+  - {fileID: 7132004764739175536}
+  isMiddle: 00000100000000000001010100
   player: {fileID: 0}
   statData: {fileID: 11400000, guid: 0cafc7e542a83d94c84632cbd26dfb03, type: 2}
   smallTalkPrefab: {fileID: 0}

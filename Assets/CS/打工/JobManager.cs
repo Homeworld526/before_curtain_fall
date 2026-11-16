@@ -718,6 +718,10 @@ public class JobManager : MonoBehaviour
         RandomWeekLuck();
         updateUI();
         InitializeProgressBar();
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        GmDebugMenu.CreateForGameScene();
+#endif
     }
     
     private void InitializeProgressBar()
@@ -1879,6 +1883,7 @@ public class JobManager : MonoBehaviour
     void CloseSettlementPanel()
     {
         SettlementPanel.SetActive(false);
+        ReturnHomeStoryService.TryStartForReturnHome(ReturnHomeTriggerSource.WeeklySettlementClosed);
     }
 
     void CloseWorkPanel()

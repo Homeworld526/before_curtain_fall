@@ -196,6 +196,11 @@ public class AffectionManager : MonoBehaviour
         return 0;
     }
 
+    public bool HasAffectionCharacter(string characterId)
+    {
+        return CharDatas.ContainsKey(NormalizeCharacterName(characterId));
+    }
+
     public List<CharData> GetAllAffections()
     {
         var list = new List<CharData>();

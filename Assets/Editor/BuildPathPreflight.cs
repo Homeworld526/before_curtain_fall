@@ -20,7 +20,7 @@ public sealed class BuildPathPreflight : IPreprocessBuildWithReport
     private const string MainScenePath = "Assets/Scenes/SampleScene.unity";
     private const string DialogStatDataPath = "Assets/Systems/Dialog/DialogStatData.asset";
     private const string NormalJobsPath = "Assets/Resources/SchemaTable/Configs/NormalJobs.csv";
-    private const string BackboneEndingConfigPath = "Assets/Resources/Backbone/BackboneEndingConfig.asset";
+    private const string ReturnHomeStoryConfigPath = "Assets/Resources/ReturnHomeStories/ReturnHomeStoryConfig.asset";
     private static readonly Regex GuidReference = new Regex(
         @"guid: ([0-9a-f]{32})",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
@@ -65,7 +65,7 @@ public sealed class BuildPathPreflight : IPreprocessBuildWithReport
         ValidateSceneScripts(buildScenes, errors);
         ValidateSerializedReferences(buildScenes, errors);
         ValidateDialogStatData(errors);
-        ValidateBackboneNarrativeConfiguration(errors);
+        ValidateReturnHomeStoryConfiguration(errors);
         ValidateChoirConfiguration(errors);
         ValidateJobChoiceConfiguration(errors);
         return errors;
@@ -214,25 +214,23 @@ public sealed class BuildPathPreflight : IPreprocessBuildWithReport
             errors.Add($"骨气值存储资产不存在或类型错误：{DialogStatDataPath}");
     }
 
-    private static void ValidateBackboneNarrativeConfiguration(List<string> errors)
+    private static void ValidateReturnHomeStoryConfiguration(List<string> errors)
     {
-        BackboneEndingConfig endingConfig = AssetDatabase.LoadAssetAtPath<BackboneEndingConfig>(BackboneEndingConfigPath);
-        if (endingConfig == null)
+        ReturnHomeStoryConfig returnHomeStoryConfig =
+            AssetDatabase.LoadAssetAtPath<ReturnHomeStoryConfig>(ReturnHomeStoryConfigPath);
+        if (returnHomeStoryConfig == null)
         {
-            errors.Add($"骨气结局配置不存在或类型错误：{BackboneEndingConfigPath}");
+            errors.Add($"回家自动剧情配置不存在或类型错误：{ReturnHomeStoryConfigPath}");
             return;
         }
 
-        if (endingConfig.enableZeroBackboneEnding)
+        try
         {
-            try
-            {
-                endingConfig.ValidateZeroBackboneEnding();
-            }
-            catch (InvalidOperationException exception)
-            {
-                errors.Add($"骨气归零 BE 配置无效：{exception.Message}");
-            }
+            returnHomeStoryConfig.ValidateEntries();
+        }
+        catch (InvalidOperationException exception)
+        {
+            errors.Add($"回家自动剧情配置无效：{exception.Message}");
         }
 
         foreach (string guid in AssetDatabase.FindAssets("t:StoryDotConfig"))

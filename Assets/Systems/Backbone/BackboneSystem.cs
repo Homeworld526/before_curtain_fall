@@ -59,7 +59,7 @@ public static class BackboneSystem
         {
             _newGameInitializationRequested = false;
             SetValue(statData, InitialValue, "新游戏初始化");
-            BackboneEndingService.ResetForNewGame(statData);
+            ReturnHomeStoryService.ResetForNewGame(statData);
             return;
         }
 

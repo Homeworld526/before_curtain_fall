@@ -284,6 +284,15 @@ public class AutoButtonBinder : MonoBehaviour
         GmDebugMenu.RequestPrologueSkip(startGameScene);
         OnStartGame();
     }
+
+    /// <summary>
+    /// 开发构建专用：进入主场景后解锁全部普通与角色打工。
+    /// </summary>
+    internal void StartGameWithAllJobsUnlockedForDebug()
+    {
+        GmDebugMenu.RequestAllJobsUnlock(startGameScene);
+        StartGameAfterPrologueForDebug();
+    }
 #endif
 
     void OnSetting() => Debug.Log("⚙️ 打开设置");

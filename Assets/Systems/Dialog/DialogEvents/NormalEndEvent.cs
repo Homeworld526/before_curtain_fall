@@ -34,8 +34,7 @@ public class NormalEndEvent : DialogEventHost
     
     protected override void DialogEndEvent(string param)
     {
-        if (BackboneEndingService.TryStartZeroBackboneEnding())
-            return;
+        bool completedAutomaticReturnHomeStory = ReturnHomeStoryService.CompleteAutomaticStory();
 
         // 设置对话框为不激活状态
         Dialog.SetActive(false);
@@ -70,6 +69,9 @@ public class NormalEndEvent : DialogEventHost
             JobManager.Instance.AdvanceOneDayAndSetEmpty();
             SoundsManager.Instance.PlayMusic("Audio/Music/小平房间循环曲");
         }
+
+        if (!completedAutomaticReturnHomeStory)
+            ReturnHomeStoryService.TryStartForReturnHome(ReturnHomeTriggerSource.DialogEnded);
     }
 
     private IEnumerator PlayVideoThenNext(int index)
