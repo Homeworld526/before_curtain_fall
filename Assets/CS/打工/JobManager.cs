@@ -254,6 +254,8 @@ public class JobManager : MonoBehaviour
     private bool isNormalHover = false;
     private bool isCharHover = false;
     private Coroutine smallImageAnimCoroutine;
+    private Coroutine reflectionTextCoroutine;
+    private Coroutine weeklyCgFadeCoroutine;
     private bool isPlayingCG = false;
     private bool isShowingCharacterJobs = false; // 当前是否显示角色打工标签页
     private bool _hasSavedPreviousBgm = false; // 是否已保存之前的BGM
@@ -2002,123 +2004,23 @@ public class JobManager : MonoBehaviour
 
         ResetProgressBar();
 
-        if (actCG == null || actCG.Count == 0)
-        {
-            if (workCGUI != null)
-            {
-                workCGUI.SetActive(false);
-            }
-            isPlayingCG = false;
-            if (skipCGBtn != null)
-            {
-                skipCGBtn.gameObject.SetActive(false);
-            }
-            yield return StartCoroutine(PlayQueuedWorkEvents());
-            yield return new WaitForEndOfFrame();
-            CompleteWorkSettlement();
-            yield break;
-        }
-
         yield return StartCoroutine(WaitForBlackoutTransition(false));
-
-        int cgIndex = 0;
 
         for (int dayIndex = 0; dayIndex < 7; dayIndex++)
         {
-            bool hasDayCG = false;
-            CGInfo dayCG = default;
-
-            while (cgIndex < actCG.Count && actCG[cgIndex].dayIndex == dayIndex)
-            {
-                if (_skipCGRequested)
-                {
-                    break;
-                }
-
-                CGInfo cgInfo = actCG[cgIndex++];
-                if (string.IsNullOrEmpty(cgInfo.imageName)) continue;
-
-                int randomIndex = cgInfo.randomIndex > 0 ? cgInfo.randomIndex : GetLuckIndex();
-                string cgPath = $"{WorkCgResourceDirectory}/打工cg-{cgInfo.imageName}-{randomIndex}";
-                Sprite s = Resources.Load<Sprite>(cgPath);
-
-                if (s == null) continue;
-
-                if (!hasDayCG)
-                {
-                    hasDayCG = true;
-                    dayCG = cgInfo;
-                }
-
-                CG.sprite = s;
-                CG.gameObject.SetActive(true);
-
-                LoadSmallImagesForJob(cgInfo.imageName, randomIndex);
-
-                if (smallImageAnimCoroutine != null)
-                    StopCoroutine(smallImageAnimCoroutine);
-                smallImageAnimCoroutine = StartCoroutine(AnimateSmallImages());
-
-                if (useFadeEffect)
-                    yield return FadeIn(CG.gameObject, 0.2f);
-
-                yield return StartCoroutine(ShowReflectionText(cgInfo.imageName, randomIndex));
-
-                if (_skipCGRequested)
-                {
-                    break;
-                }
-
-                float waitTime = 1.5f;
-                float elapsed = 0f;
-                while (elapsed < waitTime && !_skipCGRequested)
-                {
-                    elapsed += Time.deltaTime;
-                    yield return null;
-                }
-
-                if (_skipCGRequested)
-                {
-                    break;
-                }
-
-                if (useFadeEffect)
-                    yield return FadeOut(CG.gameObject, 0.2f);
-
-                if (smallImageAnimCoroutine != null)
-                {
-                    StopCoroutine(smallImageAnimCoroutine);
-                    smallImageAnimCoroutine = null;
-                }
-
-                if (leftSmallImage != null) leftSmallImage.transform.rotation = Quaternion.identity;
-                if (rightSmallImage != null) rightSmallImage.transform.rotation = Quaternion.identity;
-                
-                if (reflectionText != null)
-                    reflectionText.gameObject.SetActive(false);
-            }
-
             if (_skipCGRequested)
             {
                 break;
             }
 
-            string dayImageName = hasDayCG ? dayCG.imageName : string.Empty;
-            int dayRandomIndex = hasDayCG ? dayCG.randomIndex : GetLuckIndex();
-            yield return StartCoroutine(AdvanceProgressBarCoroutine(dayIndex, dayImageName, dayRandomIndex));
+            ShowWeeklyCgForDay(dayIndex);
+            yield return StartCoroutine(AdvanceProgressBarCoroutine(dayIndex));
         }
 
-            if (smallImageAnimCoroutine != null)
-            {
-                StopCoroutine(smallImageAnimCoroutine);
-                smallImageAnimCoroutine = null;
-            }
-
-            if (leftSmallImage != null) leftSmallImage.transform.rotation = Quaternion.identity;
-            if (rightSmallImage != null) rightSmallImage.transform.rotation = Quaternion.identity;
-            
-            if (reflectionText != null)
-                reflectionText.gameObject.SetActive(false);
+            StopWeeklyCgPresentation();
+            if (CG.gameObject.activeSelf && useFadeEffect && !_skipCGRequested)
+                yield return FadeOut(CG.gameObject, 0.2f);
+            CG.gameObject.SetActive(false);
 
             isPlayingCG = false;
             if (skipCGBtn != null)
@@ -2189,6 +2091,82 @@ public class JobManager : MonoBehaviour
             {
                 CompleteWorkSettlement();
             }));
+    }
+
+    private void ShowWeeklyCgForDay(int dayIndex)
+    {
+        if (dayIndex != 0 && dayIndex != 2 && dayIndex != 4)
+            return;
+
+        int cgIndex = dayIndex / 2;
+        if (cgIndex >= actCG.Count)
+            return;
+
+        CGInfo cgInfo = actCG[cgIndex];
+        int randomIndex = cgInfo.randomIndex > 0 ? cgInfo.randomIndex : GetLuckIndex();
+        string cgPath = $"{WorkCgResourceDirectory}/打工cg-{cgInfo.imageName}-{randomIndex}";
+        Sprite sprite = Resources.Load<Sprite>(cgPath);
+        if (sprite == null)
+        {
+            throw new System.InvalidOperationException(
+                $"第 {currentWeek} 周打工 CG 已被选中但资源不存在：{cgPath}。");
+        }
+
+        if (weeklyCgFadeCoroutine != null)
+        {
+            StopCoroutine(weeklyCgFadeCoroutine);
+            weeklyCgFadeCoroutine = null;
+        }
+
+        CG.sprite = sprite;
+        CG.gameObject.SetActive(true);
+        if (useFadeEffect)
+        {
+            weeklyCgFadeCoroutine = StartCoroutine(FadeIn(CG.gameObject, 0.2f));
+        }
+        else
+        {
+            CanvasGroup canvasGroup = CG.GetComponent<CanvasGroup>();
+            if (canvasGroup != null)
+                canvasGroup.alpha = 1f;
+        }
+
+        LoadSmallImagesForJob(cgInfo.imageName, randomIndex);
+        if (smallImageAnimCoroutine != null)
+            StopCoroutine(smallImageAnimCoroutine);
+        smallImageAnimCoroutine = StartCoroutine(AnimateSmallImages());
+
+        if (reflectionTextCoroutine != null)
+            StopCoroutine(reflectionTextCoroutine);
+        reflectionTextCoroutine = StartCoroutine(ShowReflectionText(cgInfo.imageName, randomIndex));
+    }
+
+    private void StopWeeklyCgPresentation()
+    {
+        if (weeklyCgFadeCoroutine != null)
+        {
+            StopCoroutine(weeklyCgFadeCoroutine);
+            weeklyCgFadeCoroutine = null;
+        }
+
+        if (smallImageAnimCoroutine != null)
+        {
+            StopCoroutine(smallImageAnimCoroutine);
+            smallImageAnimCoroutine = null;
+        }
+
+        if (reflectionTextCoroutine != null)
+        {
+            StopCoroutine(reflectionTextCoroutine);
+            reflectionTextCoroutine = null;
+        }
+
+        if (leftSmallImage != null)
+            leftSmallImage.transform.rotation = Quaternion.identity;
+        if (rightSmallImage != null)
+            rightSmallImage.transform.rotation = Quaternion.identity;
+        if (reflectionText != null)
+            reflectionText.gameObject.SetActive(false);
     }
 
     private IEnumerator WaitForBlackoutTransition(bool fadeInOut = true)
@@ -2367,45 +2345,31 @@ public class JobManager : MonoBehaviour
         }
     }
 
-    private IEnumerator AdvanceProgressBarCoroutine(int dayIndex, string imageName, int randomIndex)
+    private IEnumerator AdvanceProgressBarCoroutine(int dayIndex)
     {
         if (dayIndex < 0 || dayIndex >= cgItems.Count)
         {
             yield break;
         }
 
-        Sprite sprite = string.IsNullOrEmpty(imageName)
-            ? null
-            : Resources.Load<Sprite>($"{WorkCgResourceDirectory}/打工cg-{imageName}-{randomIndex}");
-
         LittleCGItem item = cgItems[dayIndex];
         if (item != null)
         {
-            if (IsDayEmptyJob(dayIndex))
-            {
-                EnableNullChildObject(item);
-            }
-            else
-            {
-                string characterName = GetCharacterJobForDay(dayIndex);
-                if (!string.IsNullOrEmpty(characterName))
-                {
-                    Sprite headSprite = Resources.Load<Sprite>($"UI/WorkIcon/打工cg-{characterName}");
-                    item.SetCharacterHead(headSprite);
-                }
-                else
-                {
-                    item.SetIcon(sprite);
-                    item.ShowIcon();
-                }
-
-                item.ShowReward(CalculateDayReward(dayIndex));
-            }
+            ConfigureDailyCg(item, dayIndex);
         }
 
         yield return StartCoroutine(MovePlayerToPosition(dayIndex));
         UpdateDecorationColors(dayIndex);
-        yield return new WaitForSeconds(0.75f);
+        float elapsed = 0f;
+        while (elapsed < 0.975f && !_skipCGRequested)
+        {
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+
+        if (_skipCGRequested)
+            yield break;
+
         currentProgress = dayIndex + 1;
         
         for (int i = 0; i < dayIndex && i < cgItems.Count; i++)
@@ -2418,29 +2382,60 @@ public class JobManager : MonoBehaviour
         }
     }
 
-    private bool IsDayEmptyJob(int dayIndex)
+    private void ConfigureDailyCg(LittleCGItem item, int dayIndex)
     {
+        string characterName = GetCharacterJobForDay(dayIndex);
+        if (!string.IsNullOrEmpty(characterName))
+        {
+            Sprite headSprite = Resources.Load<Sprite>($"UI/WorkIcon/打工cg-{characterName}");
+            if (headSprite == null)
+            {
+                throw new System.InvalidOperationException(
+                    $"角色打工“{characterName}”缺少下方行程格头像资源：UI/WorkIcon/打工cg-{characterName}。");
+            }
+
+            item.SetCharacterHead(headSprite);
+            item.ShowReward(CalculateDayReward(dayIndex));
+            return;
+        }
+
+        JobData job = GetRandomNormalJobForDay(dayIndex);
+        string imageName = job != null ? job.imageName : "躺平";
+        int randomIndex = GetLuckIndex();
+        string cgPath = $"{WorkCgResourceDirectory}/打工cg-{imageName}-{randomIndex}";
+        Sprite sprite = Resources.Load<Sprite>(cgPath);
+        if (sprite == null)
+        {
+            throw new System.InvalidOperationException(
+                $"下方行程格缺少打工 CG 资源：{cgPath}。");
+        }
+
+        item.SetIcon(sprite);
+        item.ShowIcon();
+        if (job != null)
+            item.ShowReward(CalculateDayReward(dayIndex));
+    }
+
+    private JobData GetRandomNormalJobForDay(int dayIndex)
+    {
+        List<JobData> jobs = new List<JobData>();
         for (int slot = 0; slot < 3; slot++)
         {
             int slotIndex = dayIndex * 3 + slot;
-            if (slotIndex < actjobs.Length)
+            if (slotIndex >= actjobs.Length)
+                break;
+
+            JobData job = actjobs[slotIndex];
+            if (job != null && !job.isEmpty && !job.ischar && job.name != "躺平"
+                && !string.IsNullOrWhiteSpace(job.imageName))
             {
-                var job = actjobs[slotIndex];
-                if (job != null && !job.isEmpty && job.name != "躺平")
-                {
-                    return false;
-                }
+                jobs.Add(job);
             }
         }
 
-        return true;
+        return jobs.Count == 0 ? null : jobs[UnityEngine.Random.Range(0, jobs.Count)];
     }
 
-    /// <summary>
-    /// 获取某天的角色打工信息
-    /// </summary>
-    /// <param name="dayIndex">天数索引</param>
-    /// <returns>角色打工的npcName，如果没有角色打工则返回null</returns>
     private string GetCharacterJobForDay(int dayIndex)
     {
         for (int slot = 0; slot < 3; slot++)
@@ -2456,18 +2451,6 @@ public class JobManager : MonoBehaviour
             }
         }
         return null;
-    }
-
-    
-    private void EnableNullChildObject(LittleCGItem item)
-    {
-        if (item == null) return;
-        
-        Transform nullTransform = item.transform.Find("Null");
-        if (nullTransform != null)
-        {
-            nullTransform.gameObject.SetActive(true);
-        }
     }
 
     private int CalculateDayReward(int cellIndex)
