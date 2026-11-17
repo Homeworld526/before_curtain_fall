@@ -171,8 +171,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f4688fdb7df04437aeb418b961361dc5, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name: ''
+  m_EditorClassIdentifier: ''
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
@@ -5800,6 +5800,7 @@ GameObject:
   - component: {fileID: 403785717}
   - component: {fileID: 403785716}
   - component: {fileID: 403785718}
+  - component: {fileID: 403785719}
   m_Layer: 5
   m_Name: Ending1
   m_TagString: Untagged
@@ -5877,6 +5878,23 @@ CanvasGroup:
   m_Interactable: 0
   m_BlocksRaycasts: 0
   m_IgnoreParentGroups: 0
+--- !u!114 &403785719
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 403785714}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d34f60eb51c24c518598ee2d112546da, type: 3}
+  m_Name: ''
+  m_EditorClassIdentifier: ''
+  backgroundImage: {fileID: 403785716}
+  canvasGroup: {fileID: 403785718}
+  titleText: {fileID: 0}
+  descriptionText: {fileID: 0}
+  fadeDuration: 0.5
 --- !u!1 &406335117
 GameObject:
   m_ObjectHideFlags: 0

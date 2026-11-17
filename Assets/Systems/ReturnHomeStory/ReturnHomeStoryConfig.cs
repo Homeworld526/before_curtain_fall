@@ -51,8 +51,8 @@ public sealed class ReturnHomeStoryConfig : ScriptableObject
         [Tooltip("可触发检测的回家入口。")]
         public ReturnHomeTriggerSource triggerSources = ReturnHomeTriggerSource.All;
 
-        [Tooltip("目标剧情表在 DialogList.dialogs 中的从 0 开始索引。")]
-        public int dialogIndex = -1;
+        [Tooltip("要启动的结局配置 ID。前置剧情表和结局 CG 均由结局配置管理。")]
+        public string endingId;
 
         [Tooltip("启用后，同一存档只会触发一次。")]
         public bool triggerOnce = true;
@@ -149,8 +149,13 @@ public sealed class ReturnHomeStoryConfig : ScriptableObject
                 throw new InvalidOperationException($"回家自动剧情配置 {name} 包含重复 id：{entry.id}。");
             if (entry.triggerSources == ReturnHomeTriggerSource.None)
                 throw new InvalidOperationException($"回家自动剧情“{entry.id}”未选择任何触发入口。");
-            if (entry.dialogIndex < 0)
-                throw new InvalidOperationException($"回家自动剧情“{entry.id}”未配置目标剧情表索引。");
+            if (string.IsNullOrWhiteSpace(entry.endingId))
+                throw new InvalidOperationException($"回家自动剧情“{entry.id}”未配置结局 ID。");
+            if (!EndingService.Contains(entry.endingId))
+            {
+                throw new InvalidOperationException(
+                    $"回家自动剧情“{entry.id}”引用了不存在的结局 ID：{entry.endingId}。");
+            }
             if (entry.triggerOnce)
             {
                 if (string.IsNullOrWhiteSpace(entry.triggeredFlag))
@@ -244,6 +249,8 @@ public static class ReturnHomeStoryService
                 statData.SetInt(entry.triggeredFlag, 0);
         }
 
+        EndingService.ResetForNewGame(statData);
+
         _automaticStoryActive = false;
         _activeStoryId = null;
     }
@@ -277,21 +284,18 @@ public static class ReturnHomeStoryService
         if (selected == null)
             return false;
 
-        if (selected.dialogIndex >= dialogList.dialogs.Count)
-        {
-            throw new InvalidOperationException(
-                $"回家自动剧情“{selected.id}”的对话索引 {selected.dialogIndex} 超出 DialogList.dialogs 范围。");
-        }
-
         if (selected.triggerOnce)
             dialogList.statData.SetInt(selected.triggeredFlag, 1);
 
-        GameObject dialog = RequireDialogObject();
         _automaticStoryActive = true;
         _activeStoryId = selected.id;
-        dialog.SetActive(true);
-        dialogList.InvokeDialog(selected.dialogIndex, 0);
-        Debug.Log($"[ReturnHomeStory] {source} 触发自动剧情“{selected.id}”，对话索引 {selected.dialogIndex}。");
+        if (!EndingService.TryStart(selected.endingId))
+            throw new InvalidOperationException($"回家自动剧情“{selected.id}”引用了不存在的结局 ID：{selected.endingId}。");
+
+        if (!EndingService.IsAwaitingStoryCompletion)
+            CompleteAutomaticStory();
+
+        Debug.Log($"[ReturnHomeStory] {source} 触发结局“{selected.endingId}”。");
         return true;
     }
 
@@ -321,14 +325,6 @@ public static class ReturnHomeStoryService
             throw new InvalidOperationException("回家自动剧情需要 DialogList.dialogs 配置。");
 
         return DialogList.Instance;
-    }
-
-    private static GameObject RequireDialogObject()
-    {
-        if (DialogLocator.Instance == null || DialogLocator.Instance.Dialog == null)
-            throw new InvalidOperationException("回家自动剧情需要 DialogLocator 配置 Dialog 对象。");
-
-        return DialogLocator.Instance.Dialog;
     }
 
     private static ReturnHomeStoryConfig GetConfig()

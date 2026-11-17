@@ -21,6 +21,7 @@ public sealed class BuildPathPreflight : IPreprocessBuildWithReport
     private const string DialogStatDataPath = "Assets/Systems/Dialog/DialogStatData.asset";
     private const string NormalJobsPath = "Assets/Resources/SchemaTable/Configs/NormalJobs.csv";
     private const string ReturnHomeStoryConfigPath = "Assets/Resources/ReturnHomeStories/ReturnHomeStoryConfig.asset";
+    private const string EndingConfigPath = "Assets/Resources/Endings/EndingConfig.asset";
     private static readonly Regex GuidReference = new Regex(
         @"guid: ([0-9a-f]{32})",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
@@ -65,6 +66,7 @@ public sealed class BuildPathPreflight : IPreprocessBuildWithReport
         ValidateSceneScripts(buildScenes, errors);
         ValidateSerializedReferences(buildScenes, errors);
         ValidateDialogStatData(errors);
+        ValidateEndingConfiguration(errors);
         ValidateReturnHomeStoryConfiguration(errors);
         ValidateChoirConfiguration(errors);
         ValidateJobChoiceConfiguration(errors);
@@ -130,6 +132,7 @@ public sealed class BuildPathPreflight : IPreprocessBuildWithReport
         RequireComponent<ConfigManager>(scene, scenePath, errors);
         RequireComponent<PrayLuck>(scene, scenePath, errors);
         RequireComponent<SaveSystem>(scene, scenePath, errors);
+        RequireComponent<EndingPresentation>(scene, scenePath, errors);
         DialogList dialogList = FindComponent<DialogList>(scene);
         if (dialogList == null)
         {
@@ -248,6 +251,56 @@ public sealed class BuildPathPreflight : IPreprocessBuildWithReport
             {
                 errors.Add($"剧情点配置无效 {assetPath}：{exception.Message}");
             }
+        }
+    }
+
+    private static void ValidateEndingConfiguration(List<string> errors)
+    {
+        EndingConfig endingConfig = AssetDatabase.LoadAssetAtPath<EndingConfig>(EndingConfigPath);
+        if (endingConfig == null)
+        {
+            errors.Add($"结局配置不存在或类型错误：{EndingConfigPath}");
+            return;
+        }
+
+        try
+        {
+            endingConfig.ValidateEntries();
+        }
+        catch (InvalidOperationException exception)
+        {
+            errors.Add($"结局配置无效：{exception.Message}");
+            return;
+        }
+
+        SceneSetup[] originalSetup = EditorSceneManager.GetSceneManagerSetup();
+        try
+        {
+            Scene mainScene = EditorSceneManager.OpenScene(MainScenePath, OpenSceneMode.Single);
+            DialogList dialogList = FindComponent<DialogList>(mainScene);
+            if (dialogList == null)
+            {
+                errors.Add($"场景 {MainScenePath} 缺少 DialogList 组件，无法验证结局剧情表索引。");
+                return;
+            }
+            if (dialogList.dialogs == null)
+            {
+                errors.Add($"场景 {MainScenePath} 的 DialogList 未绑定剧情表列表，无法验证结局剧情表索引。");
+                return;
+            }
+
+            foreach (EndingConfig.Entry entry in endingConfig.entries)
+            {
+                if (entry.storyDialogIndex >= dialogList.dialogs.Count)
+                {
+                    errors.Add(
+                        $"结局“{entry.id}”的剧情表索引 {entry.storyDialogIndex} 超出 DialogList.dialogs 范围。");
+                }
+            }
+        }
+        finally
+        {
+            EditorSceneManager.RestoreSceneManagerSetup(originalSetup);
         }
     }
 

@@ -18,8 +18,13 @@ public class BackToMainMenuEvent : DialogEventHost
     
     protected override void DialogEndEvent(string param)
     {
-        //Debug.LogWarning(param);
-        //base.DialogEndEvent();
+        // Existing CSVs used this literal before endings had stable IDs.
+        if (param == "跳转主界面")
+            param = "BE-1";
+
+        if (EndingService.TryStart(param))
+            return;
+
         if (param == "跳转主界面")
         {
             Debug.Log("触发");

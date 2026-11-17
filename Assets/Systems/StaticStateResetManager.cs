@@ -37,6 +37,7 @@ public static class StaticStateResetManager
         DialogKeywordDetector.ResetStaticState();
         BackboneSystem.ResetRuntimeState();
         ReturnHomeStoryService.ResetRuntimeState();
+        EndingService.ResetRuntimeState();
         
         // 好感度模块
         AffectionManager.ResetStaticState();

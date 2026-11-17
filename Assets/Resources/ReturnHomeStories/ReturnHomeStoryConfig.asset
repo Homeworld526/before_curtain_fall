@@ -17,7 +17,7 @@ MonoBehaviour:
     enabled: 1
     priority: 1000
     triggerSources: 3
-    dialogIndex: 12
+    endingId: ZeroBackboneEnding
     triggerOnce: 1
     triggeredFlag: ReturnHomeStory.ZeroBackboneEnding.Triggered
     requireMinimumWeek: 0
