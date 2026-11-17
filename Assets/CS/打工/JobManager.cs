@@ -2642,10 +2642,6 @@ public class JobManager : MonoBehaviour
         currentMoney += totalReward;
         currentMoney -= 1000;
         currentWeek++;
-        if (currentWeek > 6 && DemoProgressTracker.Instance != null)
-        {
-            DemoProgressTracker.Instance.TriggerEnd();
-        }
         totalDays += 7-usedDaysInWeek;
         usedDaysInWeek = 0;
 

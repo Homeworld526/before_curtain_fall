@@ -20,8 +20,8 @@ MonoBehaviour:
     dialogIndex: 12
     triggerOnce: 1
     triggeredFlag: ReturnHomeStory.ZeroBackboneEnding.Triggered
-    requireMinimumWeek: 1
-    minimumWeek: 13
+    requireMinimumWeek: 0
+    minimumWeek: 1
     requireMaximumWeek: 0
     maximumWeek: 13
     requiredMonth: 0
