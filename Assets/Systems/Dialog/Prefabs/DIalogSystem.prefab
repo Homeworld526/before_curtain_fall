@@ -5887,7 +5887,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   ending: {fileID: 6272339777929431298}
   enableFill: 0
-  dialogFile: {fileID: 4900000, guid: 2c7b43740c75d4c4dab4e64b284f72d0, type: 3}
+  dialogFile: {fileID: 4900000, guid: 89652c18a71f9b446b10f2377274132b, type: 3}
   previewFileName: 
   startIndex: 0
   ProtagonistName: "\u59DC\u97F6\u5E73"
