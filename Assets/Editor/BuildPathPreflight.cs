@@ -288,6 +288,22 @@ public sealed class BuildPathPreflight : IPreprocessBuildWithReport
                 errors.Add($"场景 {MainScenePath} 的 DialogList 未绑定剧情表列表，无法验证结局剧情表索引。");
                 return;
             }
+            if (dialogList.hosts == null || dialogList.hosts.Count != dialogList.dialogs.Count)
+            {
+                int hostCount = dialogList.hosts == null ? 0 : dialogList.hosts.Count;
+                errors.Add(
+                    $"场景 {MainScenePath} 的 DialogList 剧情表数量为 {dialogList.dialogs.Count}，" +
+                    $"结束事件数量为 {hostCount}；两者必须一一对应。");
+                return;
+            }
+            if (dialogList.isMiddle == null || dialogList.isMiddle.Count != dialogList.dialogs.Count)
+            {
+                int middleFlagCount = dialogList.isMiddle == null ? 0 : dialogList.isMiddle.Count;
+                errors.Add(
+                    $"场景 {MainScenePath} 的 DialogList 剧情表数量为 {dialogList.dialogs.Count}，" +
+                    $"中间演出标记数量为 {middleFlagCount}；两者必须一一对应。");
+                return;
+            }
 
             foreach (EndingConfig.Entry entry in endingConfig.entries)
             {

@@ -24,10 +24,9 @@ public class AutoButton : MonoBehaviour, IEffect
         {
             if (state)
             {
+                DialogVisual.Instance.IsAuto = true;
                 DialogVisual.Instance.OnTextDisplayDelay += DialogVisual.Instance.AutoProcceed;
                 DialogVisual.Instance.AutoProcceed();
-
-                DialogVisual.Instance.IsAuto = true;
                 //state = true;
             }
             else

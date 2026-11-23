@@ -20,6 +20,7 @@ public sealed class GmDebugMenu : MonoBehaviour
     private const float GmButtonHeight = 38f;
     private const float MenuWidth = 250f;
     private const float MenuItemHeight = 42f;
+    private const float FastDialogAutoPlayMultiplier = 5f;
     private const int JobUnlockInitializationFrameLimit = 10;
 
     private static bool _prologueSkipPending;
@@ -27,6 +28,10 @@ public sealed class GmDebugMenu : MonoBehaviour
     private static bool _allJobsUnlockPending;
     private static string _allJobsUnlockTargetScene;
     private static bool _sceneLoadHandlerRegistered;
+    private static bool _fastDialogAutoPlayEnabled;
+
+    internal static float DialogAutoPlaySpeedMultiplier =>
+        _fastDialogAutoPlayEnabled ? FastDialogAutoPlayMultiplier : 1f;
 
     private AutoButtonBinder _menuOwner;
     private GameObject _menuPanel;
@@ -35,6 +40,7 @@ public sealed class GmDebugMenu : MonoBehaviour
     private Button _unlockAllJobsButton;
     private Button _adjustResourcesButton;
     private Button _toggleBackboneDisplayButton;
+    private Button _toggleFastDialogButton;
 
     private GameObject _resourceAdjustmentPanel;
     private GameObject _resourceTypeOptionsPanel;
@@ -264,6 +270,11 @@ public sealed class GmDebugMenu : MonoBehaviour
             menuItems.Add(_adjustResourcesButton);
         }
 
+        _toggleFastDialogButton = CreateButton(_menuPanel.GetComponent<RectTransform>(), string.Empty, new Vector2(MenuWidth, MenuItemHeight), new Color(0.2f, 0.29f, 0.32f, 0.98f));
+        _toggleFastDialogButton.onClick.AddListener(ToggleFastDialog);
+        RefreshFastDialogButtonLabel();
+        menuItems.Add(_toggleFastDialogButton);
+
         _toggleBackboneDisplayButton = CreateButton(_menuPanel.GetComponent<RectTransform>(), string.Empty, new Vector2(MenuWidth, MenuItemHeight), new Color(0.2f, 0.29f, 0.32f, 0.98f));
         _toggleBackboneDisplayButton.onClick.AddListener(ToggleBackboneDisplay);
         RefreshBackboneDisplayButtonLabel();
@@ -348,7 +359,22 @@ public sealed class GmDebugMenu : MonoBehaviour
     {
         _menuPanel.SetActive(!_menuPanel.activeSelf);
         if (_menuPanel.activeSelf)
+        {
+            RefreshFastDialogButtonLabel();
             RefreshBackboneDisplayButtonLabel();
+        }
+    }
+
+    private void ToggleFastDialog()
+    {
+        _fastDialogAutoPlayEnabled = !_fastDialogAutoPlayEnabled;
+        RefreshFastDialogButtonLabel();
+    }
+
+    private void RefreshFastDialogButtonLabel()
+    {
+        TextMeshProUGUI label = _toggleFastDialogButton.GetComponentInChildren<TextMeshProUGUI>(true);
+        label.text = _fastDialogAutoPlayEnabled ? "快速剧情：开启（5倍）" : "快速剧情：关闭";
     }
 
     private void ToggleBackboneDisplay()

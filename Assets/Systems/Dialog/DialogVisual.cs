@@ -168,9 +168,21 @@ public class DialogVisual : SingleCase<DialogVisual>
     private readonly Dictionary<int, string> _autoTransitionScenes = new Dictionary<int, string>();
     public float TextPrintInterval
     {
-        get => SettingManager.Instance.settings.PrintSpeed;
+        get => SettingManager.Instance.settings.PrintSpeed / AutoPlaySpeedMultiplier;
     }
     public float TextPrintDuration = 0.05f;
+
+    private float AutoPlaySpeedMultiplier
+    {
+        get
+        {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            return IsAuto ? GmDebugMenu.DialogAutoPlaySpeedMultiplier : 1f;
+#else
+            return 1f;
+#endif
+        }
+    }
 
     public bool PrintOnHold = false;
 
@@ -276,7 +288,7 @@ public class DialogVisual : SingleCase<DialogVisual>
     
     
             OnTextDisplayEnd.Invoke();
-            yield return new WaitForSeconds(SettingManager.Instance.settings.AutoPlaySpeed);
+            yield return new WaitForSeconds(SettingManager.Instance.settings.AutoPlaySpeed / AutoPlaySpeedMultiplier);
             OnTextDisplayDelay?.Invoke();
     
         }
@@ -723,7 +735,7 @@ private IEnumerator UpdateOpponentPicAsync(DialogNode tmp, bool instant = false)
                 if (doublePicRCor != null) { StopCoroutine(doublePicRCor); doublePicRCor = null; }
                 doublePicRCor = StartCoroutine(DoublePicRHideAllRoutine(instant));
             }
-            else if (PicR.color.a == 1f)
+            else if (PicR.color.a > 0f)
             {
                 PicR.GetComponent<PicSwaper>()?.PicHide();
             }

@@ -14,9 +14,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   entries:
   - id: BE-1
-    storyDialogIndex: -1
+    storyDialogIndex: 13
     background: {fileID: 21300000, guid: b083eab3d8c931244816d53e91af1b71, type: 3}
-    title: BE-1
+    title: 爆发
     description: "债务与威胁将你逼回原点，你再也没有力气离开母亲、继续创作。"
   - id: ZeroBackboneEnding
     storyDialogIndex: 12
