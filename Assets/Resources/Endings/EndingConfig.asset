@@ -15,11 +15,13 @@ MonoBehaviour:
   entries:
   - id: BE-1
     storyDialogIndex: 13
-    background: {fileID: 21300000, guid: b083eab3d8c931244816d53e91af1b71, type: 3}
+    background: {fileID: 21300000, guid: f159aa1215c103b4eb22940d3f9ea673, type: 3}
+    mask: {fileID: 21300000, guid: b083eab3d8c931244816d53e91af1b71, type: 3}
     title: 爆发
     description: "债务与威胁将你逼回原点，你再也没有力气离开母亲、继续创作。"
   - id: ZeroBackboneEnding
     storyDialogIndex: 12
     background: {fileID: 21300000, guid: a000b9f7721314240af8eaf334462093, type: 3}
+    mask: {fileID: 0}
     title: 骨气归零
     description: "筋疲力尽的你已经没有力气再继续下去了。"

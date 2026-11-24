@@ -17,6 +17,9 @@ public sealed class EndingConfig : ScriptableObject
         [Tooltip("结局 CG 背景图。")]
         public Sprite background;
 
+        [Tooltip("点击后覆盖在结局底图之上的遮罩图。未配置时仅显示标题和描述。")]
+        public Sprite mask;
+
         public string title;
 
         [TextArea(3, 8)]

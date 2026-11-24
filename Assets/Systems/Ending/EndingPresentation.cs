@@ -13,6 +13,7 @@ public sealed class EndingPresentation : MonoBehaviour
     [SerializeField] private TextMeshProUGUI descriptionText;
     [SerializeField] private float fadeDuration = 0.5f;
 
+    private Image maskImage;
     private Coroutine _showRoutine;
 
     private void Awake()
@@ -26,6 +27,7 @@ public sealed class EndingPresentation : MonoBehaviour
         if (backgroundImage == null || canvasGroup == null)
             throw new System.InvalidOperationException("EndingPresentation 需要同一对象上的 Image 和 CanvasGroup 组件。");
 
+        CreateMaskIfNeeded();
         CreateTextIfNeeded();
         canvasGroup.alpha = 0f;
         canvasGroup.interactable = false;
@@ -39,8 +41,12 @@ public sealed class EndingPresentation : MonoBehaviour
 
         backgroundImage.sprite = entry.background;
         backgroundImage.color = Color.white;
+        maskImage.sprite = entry.mask;
+        maskImage.gameObject.SetActive(false);
         titleText.text = entry.title;
         descriptionText.text = entry.description;
+        titleText.gameObject.SetActive(false);
+        descriptionText.gameObject.SetActive(false);
 
         if (_showRoutine != null)
             StopCoroutine(_showRoutine);
@@ -55,6 +61,15 @@ public sealed class EndingPresentation : MonoBehaviour
         yield return FadeInOut.FadeIn(canvasGroup, 1f, fadeDuration, this);
 
         // Do not consume the click that advanced the final dialog line.
+        yield return null;
+        while (!Input.GetMouseButtonUp(0))
+            yield return null;
+
+        if (maskImage.sprite != null)
+            maskImage.gameObject.SetActive(true);
+        titleText.gameObject.SetActive(true);
+        descriptionText.gameObject.SetActive(true);
+
         yield return null;
         while (!Input.GetMouseButtonUp(0))
             yield return null;
@@ -92,6 +107,26 @@ public sealed class EndingPresentation : MonoBehaviour
                 FontStyles.Normal,
                 TextAlignmentOptions.Center);
         }
+    }
+
+    private void CreateMaskIfNeeded()
+    {
+        if (maskImage != null)
+            return;
+
+        var maskObject = new GameObject("EndingMask", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        maskObject.transform.SetParent(transform, false);
+
+        var rectTransform = (RectTransform)maskObject.transform;
+        rectTransform.anchorMin = Vector2.zero;
+        rectTransform.anchorMax = Vector2.one;
+        rectTransform.offsetMin = Vector2.zero;
+        rectTransform.offsetMax = Vector2.zero;
+
+        maskImage = maskObject.GetComponent<Image>();
+        maskImage.preserveAspect = false;
+        maskImage.raycastTarget = false;
+        maskObject.SetActive(false);
     }
 
     private TextMeshProUGUI CreateText(
